@@ -1,0 +1,77 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# typescript build artifacts
+*.tsbuildinfo
+
+# env
+.env
+.env*.local
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---------------------------------------------------------------------------
+# COLLECTED DATA — NEVER COMMIT.
+#
+# Everything below contains real network-usage history from this machine:
+# which executables ran, when, and how much they transferred. The repo holds
+# code only. If you are adding a new collector output format, add it here
+# FIRST, before you run the collector.
+# ---------------------------------------------------------------------------
+
+# the persistent SQLite database (normally on D:\, but never commit a stray copy)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# raw SRUM snapshots + ESE journals pulled via VSS
+*.dat
+*.jfm
+*.jrs
+*.chk
+SRU*.log
+snapshot/
+snapshots/
+
+# esentutl /p writes its integrity log to the CURRENT DIRECTORY, not beside the
+# database, and appends to it forever. srum-recover.ps1 now runs repair from
+# scratch so it lands there, but the collector's working directory is this
+# repo, so an older build or a hand-run esentutl still drops one here.
+*.INTEG.RAW
+
+# SrumECmd CSV output
+*.csv
+csv-out/
+
+# scratch space used by the collector between snapshot and ingest
+temp/
+tmp/
+
+# Exported scheduled-task XML: register-task.ps1 writes it on every install, and
+# it embeds that install's Windows account SID and paths -- nothing a public
+# fork should carry. The working repo this was published from keeps its own two
+# XMLs committed for reset recovery; they were tracked before this rule, and git
+# never ignores a tracked file, so re-exports there still show as changes.
+scripts/task/
+
+# Local dev-server launch config is machine-specific tooling, not project code.
+.claude/

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The dashboard's own mark: three ascending bars, redrawn for Android.
+
+  Same shape as public/icon.svg so the phone app and the dashboard read as one
+  project, but in Android Green rather than Tech Blue, matching the accent this
+  device carries throughout the dashboard.
+
+  Adaptive icons are 108x108 with only the middle 72x72 guaranteed visible -
+  the rest can be cropped to any mask shape. So the bars live inside an 18dp
+  inset on every side.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Shortest bar, dimmest. -->
+    <path
+        android:fillColor="#1F7A4A"
+        android:pathData="M31,64 h13 a4,4 0 0 1 4,4 v14 a4,4 0 0 1 -4,4 h-13 a4,4 0 0 1 -4,-4 v-14 a4,4 0 0 1 4,-4 z" />
+    <!-- Middle bar, the accent itself. -->
+    <path
+        android:fillColor="#3DDC84"
+        android:pathData="M47.5,48 h13 a4,4 0 0 1 4,4 v30 a4,4 0 0 1 -4,4 h-13 a4,4 0 0 1 -4,-4 v-30 a4,4 0 0 1 4,-4 z" />
+    <!-- Tallest bar, brightest. -->
+    <path
+        android:fillColor="#8AF0B8"
+        android:pathData="M64,30 h13 a4,4 0 0 1 4,4 v48 a4,4 0 0 1 -4,4 h-13 a4,4 0 0 1 -4,-4 v-48 a4,4 0 0 1 4,-4 z" />
+</vector>

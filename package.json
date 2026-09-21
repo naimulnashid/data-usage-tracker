@@ -1,0 +1,41 @@
+{
+  "name": "data-usage-tracker",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Local dashboard that keeps Windows (and optionally Android) per-app network usage history permanently, across OS resets.",
+  "license": "MIT",
+  "author": "Naimul Nashid",
+  "type": "module",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "ingest": "tsx scripts/ingest.ts",
+    "collect": "powershell -ExecutionPolicy Bypass -File scripts/collector.ps1",
+    "stats": "tsx scripts/stats.ts",
+    "android:validate": "tsx scripts/android-validate.ts",
+    "android:ssid": "tsx scripts/android-ssid-collect.ts",
+    "typecheck": "tsc --noEmit",
+    "dev": "node scripts/run-next.mjs dev",
+    "build": "node scripts/run-next.mjs build",
+    "start": "node scripts/run-next.mjs start",
+    "selftest": "tsx scripts/selftest.ts",
+    "drill": "tsx scripts/reset-drill.ts",
+    "restore": "powershell -ExecutionPolicy Bypass -File scripts/restore.ps1"
+  },
+  "dependencies": {
+    "geist": "^1.7.2",
+    "next": "^15.5.25",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

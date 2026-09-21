@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only: nothing here publishes or writes back.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dashboard:
+    name: Dashboard (typecheck, self-test, build)
+    # Windows, because that is the only platform the collector and the
+    # dashboard's scripts target.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # No admin, no SRUM: a synthetic CSV and a throwaway database in TEMP.
+      - run: npm run selftest
+      # Through scripts/run-next.mjs, so telemetry is off here too.
+      - run: npm run build
+      # Critical only, for now: Next 15 pins postcss 8.4.31, which carries
+      # high-severity advisories that only its build-time CSS processing can
+      # reach (this repo's own stylesheet). Raise to "high" once Next moves off it.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=critical
+
+  powershell:
+    name: PowerShell scripts parse, and are pure ASCII
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Windows PowerShell 5.1 specifically: it is what Task Scheduler runs,
+      # and it misreads a UTF-8 dash in a BOM-less script as a string delimiter.
+      - shell: powershell
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem scripts\*.ps1) {
+            $tokens = $null; $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count) { Write-Host "$($f.Name): $($errors.Count) parse error(s)"; $bad++ }
+            if (@([IO.File]::ReadAllBytes($f.FullName) | Where-Object { $_ -gt 127 }).Count) {
+              Write-Host "$($f.Name): non-ASCII bytes"; $bad++
+            }
+          }
+          if ($bad) { exit 1 }
+          Write-Host "All scripts parse and are pure ASCII."
+
+  android:
+    name: Android reporter (assembleDebug)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      # The wrapper jar is a binary committed to the repo; check it is Gradle's.
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: ./gradlew --no-daemon assembleDebug

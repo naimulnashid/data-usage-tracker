@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The dashboard is plain HTTP on the LAN by design: localhost-and-LAN only, no
+  certificate, and issuing one for a machine whose address is a DHCP lease is
+  ceremony with no reader.
+
+  Android blocks cleartext from API 28, so it has to be allowed. It is allowed
+  broadly here rather than by a list of literal addresses, because Android
+  matches domain names and cannot express "the private ranges" — a hardcoded
+  address list silently breaks the day the PC's DHCP lease changes.
+
+  The real restriction lives in Uploader.kt instead, which refuses to send over
+  http to anything outside RFC1918, loopback or link-local, and excludes
+  carrier-grade NAT. That check can do actual address arithmetic, which this
+  file cannot.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

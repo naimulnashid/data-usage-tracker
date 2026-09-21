@@ -1,0 +1,16 @@
+# The exported scheduled-task XML must stay UTF-16 LE: its own declaration says
+# encoding="UTF-16", and schtasks /create /xml rejects the file if the bytes
+# disagree. Marking it binary stops any autocrlf/eol normalisation from
+# corrupting it in transit -- a corruption that would only surface during a
+# post-reset recovery, which is the worst possible time to discover it.
+scripts/task/*.xml binary
+
+# The Gradle wrapper script must stay LF. It is a POSIX shell script, and with
+# core.autocrlf on (the default here) a fresh clone would check it out with CRLF
+# and `./gradlew` would fail with "bad interpreter: No such file or directory".
+# Like the task XML above, this only bites during recovery on a rebuilt machine,
+# which is the worst possible moment to discover it.
+android/gradlew text eol=lf
+
+# The wrapper jar is a binary and must never be eol-normalised.
+android/gradle/wrapper/gradle-wrapper.jar binary

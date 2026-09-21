@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- True black, like the dashboard's tile. Android masks the icon to the
+         launcher's shape, so this is the ground the bars sit on. -->
+    <color name="ic_launcher_background">#000000</color>
+</resources>

@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "Paths for the collector. The database MUST NOT live under C:\\ -- a Windows",
+    "reset wipes C:\\, and surviving that is the entire point of this project.",
+    "",
+    "  live/data-usage.db   the working database. If you sync this folder to",
+    "                       cloud storage, note the live file is not a reliable",
+    "                       restore source: in WAL mode it is three files that a",
+    "                       sync client can upload mid-write.",
+    "",
+    "  data-usage.db        the backup, written with SQLite's backup() API after",
+    "                       a WAL checkpoint. Always a complete, self-contained,",
+    "                       internally consistent single file. THIS is the one to",
+    "                       restore from after a reset.",
+    "",
+    "scratchDir holds a ~99 MB snapshot plus ~55 MB of CSVs mid-run. Keep it",
+    "OUTSIDE any synced folder, or every run uploads your raw usage history.",
+    "The collector refuses to clear a scratchDir that is a drive root, contains",
+    "the database, or holds files it did not put there.",
+    "",
+    "srumECmdDir is where SrumECmd.exe lives (https://ericzimmerman.github.io/).",
+    "",
+    "deviceLabel is what this machine is called in the dashboard, and it also",
+    "names its URL (/windows/<slug>) and its logo folder",
+    "(public/apps_logo/<slug>/).",
+    "",
+    "splitApp names one app, as the dashboard shows it (\"qBittorrent\", \"Steam\"),",
+    "to set against everything else on the Overview -- for a machine where one",
+    "app dwarfs the rest. null means no split card."
+  ],
+
+  "deviceLabel": "My PC",
+
+  "splitApp": null,
+
+  "databasePath": "D:\\DataUsage\\live\\data-usage.db",
+  "backupPath": "D:\\DataUsage\\data-usage.db",
+  "scratchDir": "D:\\DataUsage-scratch",
+
+  "srumPath": "C:\\Windows\\System32\\sru\\SRUDB.dat",
+  "srumECmdDir": "C:\\Tools\\ZimmermanTools",
+
+  "keepScratch": false,
+  "backupEnabled": true
+}
