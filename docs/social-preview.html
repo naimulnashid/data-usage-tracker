@@ -1,0 +1,234 @@
+<!doctype html>
+<!--
+  Source of docs/social-preview.png, the repository's social preview
+  (GitHub: Settings > General > Social preview). 1280x640, GitHub's size.
+
+  The charts are ILLUSTRATIVE: drawn from a fixed seed, so every render is
+  identical, and they are nobody's usage. Keep it that way -- no real figures,
+  app names or device names belong in an image that is shared publicly.
+
+  Render with Edge (fonts come from node_modules, so `npm ci` first):
+
+    "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless=new
+      --disable-gpu --hide-scrollbars --force-device-scale-factor=1
+      --window-size=1280,640 --virtual-time-budget=3000
+      --user-data-dir=%TEMP%\social-preview-edge
+      --screenshot=%CD%\docs\social-preview.png %CD%\docs\social-preview.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Data Usage Tracker</title>
+<style>
+  @font-face { font-family: Geist; font-weight: 400; src: url(../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2) format('woff2'); }
+  @font-face { font-family: Geist; font-weight: 500; src: url(../node_modules/geist/dist/fonts/geist-sans/Geist-Medium.woff2) format('woff2'); }
+  @font-face { font-family: Geist; font-weight: 600; src: url(../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.woff2) format('woff2'); }
+  @font-face { font-family: Geist; font-weight: 700; src: url(../node_modules/geist/dist/fonts/geist-sans/Geist-Bold.woff2) format('woff2'); }
+  @font-face { font-family: 'Geist Mono'; font-weight: 400; src: url(../node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.woff2) format('woff2'); }
+
+  /* The dashboard's own tokens (src/app/globals.css, src/lib/accent.ts). */
+  :root {
+    --bg: #000000;
+    --bg-panel: #0a0a0b;
+    --border: #1e1e22;
+    --border-strong: #2c2c33;
+    --text: #f5f5f7;
+    --text-dim: #a1a1aa;
+    --text-faint: #7c7c88;
+    --blue: #2f80ed;
+    --blue-bright: #4d97ff;
+    --blue-fill: #1570eb;
+    --green: #3ddc84;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    background:
+      radial-gradient(620px 420px at 86% 30%, rgba(47, 128, 237, 0.20), transparent 70%),
+      radial-gradient(420px 300px at 92% 96%, rgba(61, 220, 132, 0.10), transparent 70%),
+      var(--bg);
+    color: var(--text);
+    font-family: Geist, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .frame {
+    position: absolute; inset: 72px;
+    display: grid; grid-template-columns: 1fr 480px; grid-template-rows: 100%; gap: 56px;
+  }
+
+  /* ---- left: the words ---- */
+  .copy { display: flex; flex-direction: column; justify-content: space-between; }
+
+  .pills { display: flex; gap: 10px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 7px 15px 7px 13px; border: 1px solid var(--border-strong); border-radius: 999px;
+    font-family: 'Geist Mono', monospace; font-size: 17px; color: var(--text-dim);
+    background: rgba(10, 10, 11, 0.7);
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  h1 {
+    font-size: 92px; line-height: 0.98; font-weight: 700; letter-spacing: -0.045em;
+  }
+  h1 .accent { color: var(--blue-bright); }
+  .tagline {
+    margin-top: 26px; max-width: 540px;
+    font-size: 27px; line-height: 1.36; font-weight: 400; color: var(--text-dim);
+    letter-spacing: -0.01em;
+  }
+  .tagline strong { color: var(--text); font-weight: 500; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    font-family: 'Geist Mono', monospace; font-size: 16px; color: var(--text-dim);
+    padding: 6px 12px; border-radius: 8px; background: #111114; border: 1px solid var(--border);
+  }
+
+  /* ---- right: two illustrative cards ---- */
+  .cards { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+  .card {
+    background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: 18px;
+    padding: 22px 24px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .card--win { height: 310px; }
+  .card--droid { flex: 1; min-height: 0; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; height: 28px; }
+  .card-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .range { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; }
+  .range span {
+    font-family: 'Geist Mono', monospace; font-size: 12.5px; color: var(--text-faint);
+    padding: 3px 8px; border-radius: 6px;
+  }
+  .range span.on { background: var(--blue-fill); color: #fff; }
+
+  #trend { display: block; margin-top: 12px; }
+  #heat { display: grid; grid-template-columns: repeat(26, 13px); grid-template-rows: repeat(7, 13px); gap: 3px; margin-top: 12px; grid-auto-flow: column; }
+  #heat i { border-radius: 3px; }
+
+  #bars { margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+  .row { display: grid; grid-template-columns: 14px 86px 1fr; align-items: center; gap: 12px; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; }
+  .label { height: 8px; border-radius: 5px; background: #1c1c21; }
+  .track { display: flex; height: 10px; border-radius: 5px; overflow: hidden; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <section class="copy">
+    <div class="pills">
+      <span class="pill"><span class="dot" style="background: var(--blue)"></span>Windows</span>
+      <span class="pill"><span class="dot" style="background: var(--green)"></span>Android</span>
+    </div>
+
+    <div>
+      <h1>Data Usage<br><span class="accent">Tracker</span></h1>
+      <p class="tagline">
+        Windows keeps per-app data usage for 30&nbsp;to&nbsp;60&nbsp;days, and a reset
+        wipes it. <strong>This keeps every day of it, on your own disk.</strong>
+      </p>
+    </div>
+
+    <div class="chips">
+      <span class="chip">Local only</span>
+      <span class="chip">SQLite</span>
+      <span class="chip">Next.js</span>
+      <span class="chip">No telemetry</span>
+      <span class="chip">MIT</span>
+    </div>
+  </section>
+
+  <section class="cards" aria-hidden="true">
+    <div class="card card--win">
+      <div class="card-head">
+        <span class="card-title"><span class="dot" style="background: var(--blue)"></span>Windows</span>
+        <span class="range"><span>7d</span><span>30d</span><span>90d</span><span class="on">All</span></span>
+      </div>
+      <svg id="trend" width="430" height="104" viewBox="0 0 430 104"></svg>
+      <div id="heat"></div>
+    </div>
+
+    <div class="card card--droid">
+      <div class="card-head">
+        <span class="card-title"><span class="dot" style="background: var(--green)"></span>Android</span>
+        <span class="range"><span>30d</span><span class="on" style="background: var(--green); color: #06140c">90d</span></span>
+      </div>
+      <div id="bars"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // Fixed seed: every render is identical, and none of it is real usage.
+  let seed = 20260921;
+  const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+
+  // Trend: a weekly rhythm, noise and a few spikes, as a smoothed area.
+  const N = 52, W = 430, H = 104, PAD = 6;
+  const ys = [];
+  for (let i = 0; i < N; i++) {
+    const weekly = 0.5 + 0.22 * Math.sin((i / 7) * Math.PI * 2 + 0.6);
+    const drift = 0.12 * Math.sin(i / 11);
+    const spike = (i === 14 || i === 33 || i === 44) ? 0.34 : 0;
+    ys.push(Math.min(1, Math.max(0.06, weekly + drift + spike + (rand() - 0.5) * 0.14)));
+  }
+  const pts = ys.map((v, i) => [PAD + (i / (N - 1)) * (W - 2 * PAD), H - 4 - v * (H - 18)]);
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`;
+  }
+  const last = pts[pts.length - 1];
+  document.getElementById('trend').innerHTML = `
+    <defs>
+      <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#2f80ed" stop-opacity="0.42"/>
+        <stop offset="100%" stop-color="#2f80ed" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <line x1="0" y1="${H - 0.5}" x2="${W}" y2="${H - 0.5}" stroke="#1e1e22"/>
+    <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" stroke="#141418" stroke-dasharray="3 5"/>
+    <path d="${d} L${last[0]},${H} L${pts[0][0]},${H} Z" fill="url(#fill)"/>
+    <path d="${d}" fill="none" stroke="#4d97ff" stroke-width="2.4" stroke-linejoin="round"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="4.5" fill="#000" stroke="#6fb0ff" stroke-width="2.4"/>`;
+
+  // Heat map: the dashboard's blue ramp, one cell per day, weeks as columns.
+  const RAMP = ['#131519', '#12325c', '#17488a', '#1f62bd', '#2f80ed', '#6fb0ff'];
+  const heat = document.getElementById('heat');
+  for (let week = 0; week < 26; week++) {
+    for (let day = 0; day < 7; day++) {
+      const busy = 0.45 + 0.2 * Math.sin(week / 3.2) + (day >= 5 ? 0.12 : 0);
+      const level = Math.max(0, Math.min(5, Math.round(busy * 5 + (rand() - 0.5) * 3.2)));
+      const cell = document.createElement('i');
+      cell.style.background = RAMP[level];
+      heat.appendChild(cell);
+    }
+  }
+
+  // Top apps: download + upload stacked, upload a tint of the app's colour,
+  // as on the real Top 10. Colours are generic, not any app's brand.
+  const APPS = [
+    ['#3ddc84', 0.94, 0.78], ['#ff8a4c', 0.62, 0.84],
+    ['#a47cff', 0.4, 0.7], ['#f5c451', 0.22, 0.75],
+  ];
+  const tint = (hex) => {
+    const n = parseInt(hex.slice(1), 16), mix = (c) => Math.round(c + (255 - c) * 0.42);
+    return `rgb(${mix(n >> 16)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
+  };
+  document.getElementById('bars').innerHTML = APPS.map(([c, len, down]) => `
+    <div class="row">
+      <span class="swatch" style="background:${c}"></span>
+      <span class="label" style="width:${40 + Math.round(rand() * 46)}px"></span>
+      <span class="track" style="width:${Math.round(len * 100)}%">
+        <span style="flex:${down}; background:${c}"></span>
+        <span style="flex:${1 - down}; background:${tint(c)}"></span>
+      </span>
+    </div>`).join('');
+</script>
+</body>
+</html>

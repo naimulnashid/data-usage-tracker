@@ -187,6 +187,8 @@ export default async function SyncPage({
               className="chip"
               aria-disabled={safePage === 1}
               data-disabled={safePage === 1}
+              // CSS stops the mouse (pointer-events: none); this stops Tab and Enter.
+              tabIndex={safePage === 1 ? -1 : undefined}
             >
               &larr; Newer
             </Link>
@@ -196,6 +198,7 @@ export default async function SyncPage({
               className="chip"
               aria-disabled={safePage === pageCount}
               data-disabled={safePage === pageCount}
+              tabIndex={safePage === pageCount ? -1 : undefined}
             >
               Older &rarr;
             </Link>
@@ -211,7 +214,8 @@ export default async function SyncPage({
                 padding: '0.6rem 0.8rem', marginBottom: '0.4rem',
                 background: 'var(--danger-dim)', borderRadius: 'var(--radius-sm)',
               }}>
-                <span style={{ color: 'var(--text-faint)' }}>{formatDateTime(r.startedAt)}</span> — {r.error}
+                {/* --text-dim: faint grey on the red tint measured 4.19:1. */}
+                <span style={{ color: 'var(--text-dim)' }}>{formatDateTime(r.startedAt)}</span> — {r.error}
               </div>
             ))}
           </div>

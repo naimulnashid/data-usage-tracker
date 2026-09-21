@@ -4,9 +4,17 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { safeNextPath } from '@/lib/safe-redirect';
 
-/** What the server's error codes mean, in words a reader can act on. */
-function describe(payload: { error?: string; retryAfterSeconds?: number }): string {
+/**
+ * What the server's error codes mean, in words a reader can act on.
+ *
+ * "Wrong password" only for the one code that means it. This used to be the
+ * default, so when the same-origin check refused every browser's login with a
+ * 403, the page told the user their correct password was wrong.
+ */
+function describe(status: number, payload: { error?: string; retryAfterSeconds?: number }): string {
   switch (payload.error) {
+    case 'wrong-password':
+      return 'That password is not right.';
     case 'auth-not-configured':
       return 'No password is set on the server. Add DASHBOARD_PASSWORD to .env.local and restart.';
     case 'auth-password-too-short':
@@ -15,8 +23,10 @@ function describe(payload: { error?: string; retryAfterSeconds?: number }): stri
       const s = payload.retryAfterSeconds ?? 60;
       return `Too many wrong attempts. Try again in ${s >= 90 ? `${Math.ceil(s / 60)} minutes` : `${s} seconds`}.`;
     }
+    case 'cross-origin-request':
+      return 'The server refused this request as coming from another site. Open the dashboard at its own address and try again.';
     default:
-      return 'That password is not right.';
+      return `Sign-in failed (HTTP ${status}). The dashboard log may say why.`;
   }
 }
 
@@ -53,7 +63,7 @@ function LoginForm() {
       const payload = (await response.json().catch(() => ({}))) as {
         error?: string; retryAfterSeconds?: number;
       };
-      setError(describe(payload));
+      setError(describe(response.status, payload));
     } catch {
       setError('Could not reach the server.');
     } finally {

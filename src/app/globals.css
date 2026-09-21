@@ -279,7 +279,9 @@ a:hover { color: var(--accent-bright); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .side-device-sub { font-size: 0.75rem; color: var(--text-faint); }
-.side-device[data-active='true'] .side-device-sub { color: var(--accent); }
+/* --accent-bright, not --accent: the active row's tint lifts the background,
+   and Tech Blue on it measured 4.36:1. Bright blue is ~5.8:1. */
+.side-device[data-active='true'] .side-device-sub { color: var(--accent-bright); }
 
 /* Collapsed, a device row is just its icon, centred in the rail. */
 .sidebar[data-collapsed='true'] .side-device { justify-content: center; padding-inline: 0; }

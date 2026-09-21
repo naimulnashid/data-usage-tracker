@@ -3,6 +3,7 @@ import {
   SESSION_COOKIE, configuredPassword, passwordProblem, verifySession, shouldRenew, issueSession,
 } from '@/lib/auth';
 import { safeNextPath } from '@/lib/safe-redirect';
+import { isSameOrigin } from '@/lib/same-origin';
 
 /**
  * One gate in front of everything. Enforcing this here rather than per-page is
@@ -19,25 +20,13 @@ export const config = {
 /** Methods that change something, and so must come from this dashboard's own pages. */
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/**
- * Did this request come from a page served by this dashboard?
- *
- * The session cookie is `SameSite=Lax`, which stops another SITE from riding
- * it -- but a site is scheme + host with the port ignored, so every
- * `localhost:*` page counts as same-site, the neighbouring dashboards on 7842
- * and 7844-7846 included. Any of them, or anything else served on localhost,
- * could POST to `/api/sync` with the cookie attached.
- *
- * `Sec-Fetch-Site` answers the question exactly and cannot be set by page
- * script. `same-origin` is our own pages; `none` is the user typing a URL or
- * a non-browser client. `Origin` is the fallback for browsers that predate
- * it. A request carrying neither is not from a browser, so it cannot be CSRF.
- */
+/** Did this request come from a page served by this dashboard? See same-origin.ts. */
 function fromOwnOrigin(request: NextRequest): boolean {
-  const site = request.headers.get('sec-fetch-site');
-  if (site && site !== 'same-origin' && site !== 'none') return false;
-  const origin = request.headers.get('origin');
-  return !origin || origin === request.nextUrl.origin;
+  return isSameOrigin({
+    site: request.headers.get('sec-fetch-site'),
+    origin: request.headers.get('origin'),
+    host: request.headers.get('host'),
+  });
 }
 
 export async function middleware(request: NextRequest) {

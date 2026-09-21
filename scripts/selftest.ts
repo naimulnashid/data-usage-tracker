@@ -29,6 +29,7 @@ import {
   coveredDays, daySpanLabel, eachDay, fillDays, isKnown,
 } from '../src/lib/days.js';
 import { safeNextPath } from '../src/lib/safe-redirect.js';
+import { isSameOrigin } from '../src/lib/same-origin.js';
 import { parseDays, ALL_DAYS, DEFAULT_DAYS } from '../src/lib/scope.js';
 import { LoginThrottle, DEFAULT_THROTTLE } from '../src/lib/login-throttle.js';
 import {
@@ -489,6 +490,24 @@ async function securityChecks(): Promise<void> {
   home('https://evil.example/');
   home('javascript:alert(1)');
   home('windows/relative');
+
+  // Same-origin check on state-changing calls. The first three are what real
+  // browsers send, and the first version refused all of them: it compared
+  // Origin with a URL Next builds from the BIND address (-H 127.0.0.1 or
+  // 0.0.0.0), which no browser ever sends as its origin.
+  const origin = (name: string, want: boolean, site: string | null, o: string | null, host: string | null) =>
+    check(`origin check ${want ? 'allows' : 'refuses'} ${name}`,
+      isSameOrigin({ site, origin: o, host }) === want);
+  origin('a login from localhost', true, 'same-origin', 'http://localhost:7843', 'localhost:7843');
+  origin('a login from 127.0.0.1', true, 'same-origin', 'http://127.0.0.1:7843', '127.0.0.1:7843');
+  origin('a login from a LAN address', true, 'same-origin', 'http://192.0.2.10:7843', '192.0.2.10:7843');
+  origin('an older browser without Sec-Fetch-Site', true, null, 'http://localhost:7843', 'localhost:7843');
+  origin('a client sending neither header', true, null, null, 'localhost:7843');
+  origin('a sibling dashboard on another port', false, 'same-site', 'http://localhost:7842', 'localhost:7843');
+  origin('another port when Sec-Fetch-Site is absent', false, null, 'http://localhost:7842', 'localhost:7843');
+  origin('another site', false, 'cross-site', 'https://evil.example', 'localhost:7843');
+  origin('Origin: null', false, null, 'null', 'localhost:7843');
+  origin('a missing Host', false, 'same-origin', 'http://localhost:7843', null);
 
   // ?days= goes straight into Date arithmetic. 1e9 used to reach it and throw
   // RangeError, taking the page down; anything unbounded or fractional must

@@ -1,6 +1,6 @@
 {
   "name": "data-usage-tracker",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "Local dashboard that keeps Windows (and optionally Android) per-app network usage history permanently, across OS resets.",
   "license": "MIT",

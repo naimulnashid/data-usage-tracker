@@ -340,7 +340,10 @@ as sensitive even on a home network.
   client.
 - **State-changing API calls must be same-origin** (`Sec-Fetch-Site`, then
   `Origin`). `SameSite=Lax` alone does not cover it, because a "site" ignores
-  the port, so any other `localhost` page counts as same-site.
+  the port, so any other `localhost` page counts as same-site. `Origin` is
+  compared with the `Host` header, never with `request.nextUrl.origin`: under
+  `next start -H` Next builds that from the bind address (`127.0.0.1`,
+  `0.0.0.0`), which no browser sends, and 3.0.0 refused every sign-in that way.
 - **`?next=` after login is resolved and must stay on this origin**; a plain
   "starts with `/`" check lets `/\example.com` through.
 - **Headers:** a CSP limiting every target to `'self'` (scripts keep
