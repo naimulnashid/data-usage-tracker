@@ -1,6 +1,6 @@
 {
   "name": "data-usage-tracker",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "private": true,
   "description": "Local dashboard that keeps Windows (and optionally Android) per-app network usage history permanently, across OS resets.",
   "license": "MIT",
@@ -21,7 +21,9 @@
     "start": "node scripts/run-next.mjs start",
     "selftest": "tsx scripts/selftest.ts",
     "drill": "tsx scripts/reset-drill.ts",
-    "restore": "powershell -ExecutionPolicy Bypass -File scripts/restore.ps1"
+    "restore": "powershell -ExecutionPolicy Bypass -File scripts/restore.ps1",
+    "demo:data": "tsx scripts/make-demo-data.ts",
+    "demo:shots": "tsx scripts/make-screenshots.ts"
   },
   "dependencies": {
     "geist": "^1.7.2",

@@ -316,6 +316,25 @@ On Windows, "collected history" is the union of successful runs' SRUM windows;
 on Android, first to last day with a row. Anything "per active day" (spike
 thresholds, detail-page eligibility) counts real rows, never filled ones.
 
+**Hours follow the same rule** (`fillHours`). Hour of day is a category axis
+too, so a machine off at 06:00 and 07:00 drew 05 directly beside 08. Every
+hour is filled, empty ones as 0. The phone fills only the hours its two-hour
+buckets start on, and all 24 if its hours ever mix odd and even (its UTC offset
+changed), because a row must never be dropped to tidy the axis. The demo
+history found this: a machine busy at every hour of the day never shows it.
+
+## The demo history
+
+`npm run demo:data` (`scripts/make-demo-data.ts`) writes an invented PC and
+phone, and `npm run demo:shots` captures the README's screenshots from them.
+The history goes through the real `ingest.ts` and phone-ingest code rather
+than into the tables directly, so it has to reproduce the traps above, and it
+checks the aggregate rule on its own output. `DATA_USAGE_CONFIG` points a
+dashboard at it; every dashboard read of the config goes through
+`src/lib/config-path.ts` so the override cannot reach only some of them. The
+capture refuses any page listing a device the demo does not have, which is
+what keeps a stale build from photographing real data.
+
 ---
 
 ## Security model

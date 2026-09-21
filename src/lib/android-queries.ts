@@ -20,11 +20,11 @@ import 'server-only';
 
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { configPath } from './config-path';
 import { assignColors, type AppColorMap } from './app-colors';
 import { deviceSlug } from './nav';
 import {
-  eachDay, fillDays, laterOf, quietDay, unknownDay, type DailyPoint, type DayRange,
+  eachDay, fillDays, fillHours, laterOf, quietDay, unknownDay, type DailyPoint, type DayRange,
 } from './days';
 
 /** Documented special uids. Anything else negative is surfaced as-is. */
@@ -32,9 +32,7 @@ export const UID_TETHERING = -5;
 export const UID_REMOVED = -4;
 
 function dbPath(): string {
-  const cfg = JSON.parse(
-    readFileSync(join(process.cwd(), 'config', 'collector.json'), 'utf8'),
-  ) as { databasePath: string };
+  const cfg = JSON.parse(readFileSync(configPath(), 'utf8')) as { databasePath: string };
   return cfg.databasePath;
 }
 
@@ -249,7 +247,7 @@ export function getAndroidOverview(deviceId: string, days: number): AndroidOverv
     }));
     const daily = filledDaily(rowDays, scopeFrom, phoneHistory(db, deviceId));
 
-    const hourly = (
+    const hourly = fillHours((
       db
         .prepare(
           `SELECT local_hour h, SUM(rx_bytes) rx, SUM(tx_bytes) tx FROM android_usage_records
@@ -262,7 +260,7 @@ export function getAndroidOverview(deviceId: string, days: number): AndroidOverv
       received: Number(r.rx),
       sent: Number(r.tx),
       total: Number(r.rx) + Number(r.tx),
-    }));
+    })), (hour) => ({ hour, received: 0, sent: 0, total: 0 }), 2);
 
     const byNetwork = (
       db
@@ -748,7 +746,7 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
     }));
     const daily = filledDaily(rowDays, from, phoneHistory(db, deviceId));
 
-    const hourly = (
+    const hourly = fillHours((
       db
         .prepare(
           `SELECT local_hour h, SUM(rx_bytes) rx, SUM(tx_bytes) tx FROM android_usage_records
@@ -760,7 +758,7 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
       received: Number(r.rx),
       sent: Number(r.tx),
       total: Number(r.rx) + Number(r.tx),
-    }));
+    })), (hour) => ({ hour, received: 0, sent: 0, total: 0 }), 2);
 
     const byNetwork = (
       db

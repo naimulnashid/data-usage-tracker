@@ -66,6 +66,10 @@ csv-out/
 temp/
 tmp/
 
+# synthetic demo history from `npm run demo:data` (scripts/make-demo-data.ts).
+# Nobody's usage, but regenerated at will, so never committed.
+demo-data/
+
 # Exported scheduled-task XML: register-task.ps1 writes it on every install, and
 # it embeds that install's Windows account SID and paths -- nothing a public
 # fork should carry. The working repo this was published from keeps its own two

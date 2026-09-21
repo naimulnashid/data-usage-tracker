@@ -31,6 +31,10 @@ you have seen the data that produced them.
   dash in a BOM-less script, and silently changes its logic.
 - **Never commit collected data.** `.gitignore` blocks databases, snapshots and
   CSVs; if you add a new collector output, add it there first.
+- **Screenshots come from the demo data only.** If a change alters what a
+  pictured page looks like, regenerate them with `npm run demo:data`,
+  `npm run build` and `npm run demo:shots` rather than capturing your own
+  dashboard, which would publish your usage.
 - **Never make the collector task elevated.** Only the shadow copy is. See
   [docs/DESIGN.md](docs/DESIGN.md#the-privilege-split).
 - **No new runtime dependencies without a reason.** The project is meant to

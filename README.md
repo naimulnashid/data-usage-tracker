@@ -20,6 +20,43 @@ reset, and shows them in a Next.js dashboard that runs on your own machine.
   depends on Windows internals and a third-party parser. Expect to read the
   scripts before trusting them with your data.
 
+![The Windows overview: all-time, 30-day, 7-day and latest-day totals above the daily trend](docs/screenshots/windows-overview.webp)
+
+<details>
+<summary><b>The heat map, every app, one app in detail, and a phone</b></summary>
+
+A six-month heat map, then each day split by app. Outlined days were never
+collected, which is not the same as a quiet day.
+
+![The activity heat map above the daily-by-app chart](docs/screenshots/windows-activity.webp)
+
+Every app, ranked. Each bar is download, then upload in a tint of the app's
+own colour.
+
+![The By App page: the ten largest apps as stacked download and upload bars](docs/screenshots/windows-apps.webp)
+
+One app in detail: the networks it used, named as the collector sees them
+and "unnamed" until it has, and the separate programs merged into it.
+
+![An app's detail page: traffic by network, and the three programs merged into Microsoft Edge](docs/screenshots/windows-app-detail.webp)
+
+A phone, in its own accent.
+
+![A phone's overview: totals above its daily trend](docs/screenshots/android-overview.webp)
+
+Where the phone's traffic went, per Wi-Fi network, with tethering kept apart:
+the laptop has already counted those bytes.
+
+![Wi-Fi against mobile data, traffic per Wi-Fi network, and the tethering note](docs/screenshots/android-networks.webp)
+
+</details>
+
+> **Every number in these images is invented.** They are captured from
+> `npm run demo:data`, a synthetic history loaded through the real collector and
+> phone code; see [Trying it without your own data](#trying-it-without-your-own-data).
+> No logos ship, so apps show their colour swatch, as they will on a fresh
+> install until you add some.
+
 ---
 
 ## How it works
@@ -261,6 +298,48 @@ running; that page is where you notice it has stopped.
 | Typecheck | `npm run typecheck` |
 | Rehearse a reset recovery | `npm run drill` (add `-- --full` to also test `npm ci`) |
 | Logs | `logs\collector-*.log`, `logs\dashboard.log` |
+
+---
+
+## Trying it without your own data
+
+```bash
+npm run demo:data
+```
+
+Writes a synthetic history to `./demo-data` (git-ignored): 100 days of an
+invented PC and 90 of an invented phone. It is not a mock. The PC's history is
+written as SrumECmd CSVs and loaded by the real `ingest.ts`, one simulated
+collector run at a time, and the phone's goes through the real ingest code, so
+every number is computed the way yours would be. It reproduces the awkward
+parts of real data on purpose: SRUM's per-interface total rows, apps split
+across versioned install paths, overlapping collector runs, networks named by
+observation, and tethering that both devices count.
+
+To browse it, start a second dashboard pointed at it. `DATA_USAGE_CONFIG` is
+read by the dashboard only; your own database and collector are untouched.
+
+```powershell
+npm run build
+$env:DATA_USAGE_CONFIG = "$PWD\demo-data\collector.json"
+$env:NEXT_TELEMETRY_DISABLED = '1'
+npx next start -H 127.0.0.1 -p 7899
+```
+
+Sign in with your usual password, then open <http://127.0.0.1:7899/windows/my-pc>.
+
+**The screenshots above come from that data**, and are regenerated rather than
+edited by hand:
+
+```bash
+npm run demo:shots
+```
+
+It starts its own dashboard on the demo data with a one-off password, captures
+six pages in headless Chrome or Edge into `docs/screenshots/`, and stops it.
+It needs a current build, and it refuses to capture any page that lists a
+device other than the demo's two. That way a build that ignored
+`DATA_USAGE_CONFIG` cannot put your own data into an image.
 
 ---
 

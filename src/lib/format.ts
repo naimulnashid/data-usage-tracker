@@ -44,6 +44,21 @@ export function formatDayShort(iso: string): string {
   return `${months[m - 1]} ${d}`;
 }
 
+/**
+ * An ISO instant -> the local calendar day it fell on: "2026-09-19".
+ *
+ * Not `instant.slice(0, 10)`, which is the UTC day. At UTC+6 that files
+ * anything between midnight and 06:00 under the day before -- the phone
+ * page's "collected over USB" date did exactly that. Local here means the
+ * server's zone, which is right for an event that happened on this machine.
+ */
+export function localDayOf(instant: string): string {
+  const d = new Date(instant);
+  if (Number.isNaN(d.getTime())) return instant.slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 /** "2026-08-21" -> "Thursday, 21 August 2026" */
 export function formatDayLong(iso: string): string {
   const d = new Date(iso + 'T00:00:00');

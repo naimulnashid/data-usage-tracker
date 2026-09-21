@@ -142,6 +142,36 @@ export function coveredDays(
 }
 
 /**
+ * Every hour of the day, in order, the hours that moved nothing as zero.
+ *
+ * Hour of day is a category axis too, so an hour without rows used to vanish
+ * and its neighbours closed up: on a machine that is off at 06:00 and 07:00,
+ * 05 sat directly beside 08 and the chart read as consecutive busy hours. It
+ * went unseen on a machine that is never idle for a whole hour of the day;
+ * the demo history, which is, showed it at once.
+ *
+ * `step` is 2 for the phone, whose buckets are two hours long: only the hours
+ * a bucket can start on are filled, or every other bar would be a false zero.
+ * Should the rows ever hold both odd and even hours -- the phone's UTC offset
+ * changed across the range -- it fills all 24 instead, because a row must
+ * never be dropped to make the axis tidy.
+ */
+export function fillHours<T extends { hour: number }>(
+  rows: T[],
+  zero: (hour: number) => T,
+  step: 1 | 2 = 1,
+): T[] {
+  if (rows.length === 0) return [];
+  const parities = new Set(rows.map((r) => r.hour % 2));
+  const stride = step === 2 && parities.size === 1 ? 2 : 1;
+  const start = stride === 2 ? rows[0]!.hour % 2 : 0;
+  const byHour = new Map(rows.map((r) => [r.hour, r]));
+  const out: T[] = [];
+  for (let h = start; h < 24; h += stride) out.push(byHour.get(h) ?? zero(h));
+  return out;
+}
+
+/**
  * "87 days, 84 with traffic" -- the span a filled series draws, and how much of
  * it moved anything. Unknown days are counted in neither.
  */

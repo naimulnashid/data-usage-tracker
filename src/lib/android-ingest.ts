@@ -23,7 +23,7 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { configPath } from './config-path';
 import { openDatabase } from './db';
 
 /* ------------------------------------------------------------------ */
@@ -182,9 +182,7 @@ export function localParts(epochMs: number, offsetMinutes: number): { date: stri
 /* ------------------------------------------------------------------ */
 
 export function databasePath(): string {
-  const cfg = JSON.parse(
-    readFileSync(join(process.cwd(), 'config', 'collector.json'), 'utf8'),
-  ) as { databasePath: string };
+  const cfg = JSON.parse(readFileSync(configPath(), 'utf8')) as { databasePath: string };
   return cfg.databasePath;
 }
 

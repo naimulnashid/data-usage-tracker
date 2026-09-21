@@ -26,7 +26,7 @@ import {
   ingestAndroid, validatePayload, localParts, type AndroidPayload,
 } from '../src/lib/android-ingest.js';
 import {
-  coveredDays, daySpanLabel, eachDay, fillDays, isKnown,
+  coveredDays, daySpanLabel, eachDay, fillDays, fillHours, isKnown,
 } from '../src/lib/days.js';
 import { safeNextPath } from '../src/lib/safe-redirect.js';
 import { isSameOrigin } from '../src/lib/same-origin.js';
@@ -318,6 +318,20 @@ function dayChecks(): void {
   check('a day outside known history is null, never 0',
     edge.map((d) => d.total).join(',') === ',0,0,,9', edge.map((d) => String(d.total)).join(','));
   check('a row wins even outside known history', edge[4]!.total === 9);
+
+  // Hour of day. A machine off at 06:00 and 07:00 used to draw 05 beside 08.
+  const zeroHour = (hour: number) => ({ hour, total: 0 });
+  const pc = fillHours([{ hour: 5, total: 3 }, { hour: 8, total: 4 }], zeroHour);
+  check('hours fill to all 24, in order', pc.length === 24 && pc.every((r, i) => r.hour === i));
+  check('an hour with no rows is 0, not missing',
+    pc[6]!.total === 0 && pc[7]!.total === 0 && pc[5]!.total === 3 && pc[8]!.total === 4);
+  const phone = fillHours([{ hour: 20, total: 2 }, { hour: 4, total: 1 }], zeroHour, 2);
+  check('2-hour buckets fill only the hours a bucket starts on',
+    phone.length === 12 && phone.every((r) => r.hour % 2 === 0), phone.map((r) => r.hour).join(','));
+  const shifted = fillHours([{ hour: 3, total: 1 }, { hour: 4, total: 1 }], zeroHour, 2);
+  check('mixed odd and even phone hours fill all 24 rather than drop a row',
+    shifted.length === 24 && shifted[3]!.total === 1 && shifted[4]!.total === 1);
+  check('no rows stays no rows', fillHours([], zeroHour).length === 0);
 
   // Collector windows at UTC+6, fixed rather than the machine's zone so the
   // test means the same thing anywhere.

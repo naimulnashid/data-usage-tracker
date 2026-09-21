@@ -16,7 +16,7 @@ import { AndroidEmpty } from '@/components/AndroidEmpty';
 import { parseDays } from '@/lib/scope';
 import { daySpanLabel } from '@/lib/days';
 import {
-  formatBytes, formatDayLong, formatDayShort, formatPercent, formatRelative, splitBytes,
+  formatBytes, formatDayLong, formatDayShort, formatPercent, formatRelative, localDayOf, splitBytes,
 } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -104,7 +104,7 @@ export default async function AndroidPage({
           Android's newest complete bucket is not "now".
         */}
         <p>
-          {data.latestDate && <>latest data {formatDayLong(data.latestDate)}</>}
+          {data.latestDate && <>Latest data {formatDayLong(data.latestDate)}</>}
           {lastSync && (
             <>
               {data.latestDate && ' · '}
@@ -230,7 +230,7 @@ export default async function AndroidPage({
                   <span className="ssid-note">
                     {formatDayShort(ssid.coverage.first)} &ndash; {formatDayShort(ssid.coverage.last)}
                     {ssid.lastCollected && (
-                      <> · collected over USB {formatDayShort(ssid.lastCollected.slice(0, 10))}</>
+                      <> · collected over USB {formatDayShort(localDayOf(ssid.lastCollected))}</>
                     )}
                   </span>
                 )}

@@ -18,13 +18,13 @@ import 'server-only';
 
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { configPath } from './config-path';
 import { resolveApp } from './app-name';
 import { deviceSlug } from './nav';
 import { assignColors, type AppColorMap } from './app-colors';
 import { toLocalBuckets, type AppKind } from './srum';
 import {
-  coveredDays, eachDay, fillDays, isKnown, laterOf, quietDay, unknownDay,
+  coveredDays, eachDay, fillDays, fillHours, isKnown, laterOf, quietDay, unknownDay,
   type DailyPoint, type DayRange,
 } from './days';
 
@@ -48,9 +48,7 @@ interface DashboardConfig {
  * which matters for a server that runs for weeks.
  */
 function readConfig(): DashboardConfig {
-  return JSON.parse(
-    readFileSync(join(process.cwd(), 'config', 'collector.json'), 'utf8'),
-  ) as DashboardConfig;
+  return JSON.parse(readFileSync(configPath(), 'utf8')) as DashboardConfig;
 }
 
 function dbPath(): string {
@@ -734,7 +732,7 @@ export function getAppDetail(groupKey: string, scope: Scope): AppDetail | null {
     }));
     const daily = filledDaily(db, rowDays, sc.from);
 
-    const hourly = (
+    const hourly = fillHours((
       db
         .prepare(
           `SELECT local_hour h, SUM(bytes_sent) s, SUM(bytes_received) r
@@ -748,7 +746,7 @@ export function getAppDetail(groupKey: string, scope: Scope): AppDetail | null {
       sent: Number(x.s),
       received: Number(x.r),
       total: Number(x.s) + Number(x.r),
-    }));
+    })), (hour) => ({ hour, sent: 0, received: 0, total: 0 }));
 
     // Same disambiguation the scope bar uses: without the suffix every
     // still-unnamed profile renders as a bare "Wi-Fi", and a five-row table of
@@ -875,7 +873,7 @@ export function getTimeline(scope: Scope, topN = 8): TimelineData {
       ? fillDays(rowPoints, laterOf(sc.from, span.first), span.last, collectedDays(db), every(0), every(null))
       : [];
 
-    const hourly = (
+    const hourly = fillHours((
       db
         .prepare(
           `SELECT local_hour h, SUM(bytes_sent) s, SUM(bytes_received) r
@@ -888,7 +886,7 @@ export function getTimeline(scope: Scope, topN = 8): TimelineData {
       sent: Number(x.s),
       received: Number(x.r),
       total: Number(x.s) + Number(x.r),
-    }));
+    })), (hour) => ({ hour, sent: 0, received: 0, total: 0 }));
 
     return { points, series, hourly };
   });
