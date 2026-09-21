@@ -1,6 +1,6 @@
 {
   "name": "data-usage-tracker",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "private": true,
   "description": "Local dashboard that keeps Windows (and optionally Android) per-app network usage history permanently, across OS resets.",
   "license": "MIT",
@@ -37,5 +37,8 @@
     "@types/react-dom": "^19.2.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "overrides": {
+    "postcss": "^8.5.28"
   }
 }

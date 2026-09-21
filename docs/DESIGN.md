@@ -372,6 +372,13 @@ as sensitive even on a home network.
 - **Loading skeletons mirror each page's sections at measured heights**, so
   nothing moves when data arrives; they reuse the real card and grid classes
   so spacing cannot drift.
+- **`package.json` overrides `postcss` to `^8.5.28`.** Next 15 pins it at
+  exactly 8.4.31, which carries four advisories (source-map file reads, and
+  an XSS in stringified CSS). None was reachable here -- only the build loads
+  postcss, on this project's own CSS -- but the override clears them at no
+  cost: built with either version, all 51 client JS and CSS files come out
+  byte-identical. Drop it once Next ships a postcss at or above the override,
+  or it will start holding postcss back instead.
 
 ---
 
