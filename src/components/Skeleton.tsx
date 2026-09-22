@@ -19,9 +19,12 @@
  *    997px and 1680px viewport, so the error is split rather than piled on one
  *    end. Every number in the loading files is annotated with both.
  *
- * Re-measure if a panel changes shape. The measurement harness is in the commit
- * that added these; it renders each route into a detached iframe at both widths
- * and reads `.container > *` heights.
+ * Re-measure if a panel changes shape: every real page and every skeleton at
+ * both widths, reading `.container > *` heights, with the sidebar expanded.
+ * Measure a skeleton through a temporary route that renders its `loading.tsx`
+ * on its own. In place it cannot be caught: a cold load paints the ancestor
+ * segment's skeleton, and a client-side navigation is too quick for it to
+ * paint at all.
  *
  * Unlike the sibling AI Usage Tracker, whose skeleton covers a client-side
  * fetch, these are Next `loading.tsx` boundaries: they show while the server
@@ -56,12 +59,22 @@ export function Skeleton({
  * Measured 64px @997 / 73px @1680 -> 68.
  *
  * `backLink` is for the detail pages, whose head carries a "back" line above
- * the title. Measured 106 / 116 -> 111. Without it those pages start 43px
- * short and every card below them jumps on load.
+ * the title. Without it those pages start 43px short and every card below them
+ * jumps on load. It measures 107 / 117 when the sub line carries a badge --
+ * every phone app (its uid), and Windows store apps and services -- and
+ * 101 / 111 when it does not, a Windows exe. 111 is within 10px of all four,
+ * and a per-kind variant would need the data the skeleton is standing in for.
+ *
+ * `longSub` is for a head whose sub is a sentence rather than a figure line --
+ * both Sync Status pages. It wraps to two lines at 997 and not at 1680:
+ * measured 89 / 73 -> 81, on every device measured. On the shared 68 those
+ * pages started 21px short at 997, in the first viewport.
  */
-export function SkeletonPageHead({ backLink = false }: { backLink?: boolean } = {}) {
+export function SkeletonPageHead({
+  backLink = false, longSub = false,
+}: { backLink?: boolean; longSub?: boolean } = {}) {
   return (
-    <div style={{ height: backLink ? 111 : 68, marginBottom: '2.2rem' }}>
+    <div style={{ height: backLink ? 111 : longSub ? 81 : 68, marginBottom: '2.2rem' }}>
       {/* Every loading.tsx opens with this, so this is where a screen reader
           learns the page is loading; the shimmer boxes themselves are empty
           and say nothing. .sr-only is absolutely positioned, so the measured
@@ -70,6 +83,7 @@ export function SkeletonPageHead({ backLink = false }: { backLink?: boolean } = 
       {backLink && <Skeleton height={14} width={110} style={{ marginBottom: 12 }} />}
       <Skeleton height={30} width={190} />
       <Skeleton height={17} width={330} style={{ marginTop: 10 }} />
+      {longSub && <Skeleton height={17} width={210} style={{ marginTop: 6 }} />}
     </div>
   );
 }
@@ -133,14 +147,14 @@ export function SkeletonStatGrid({
 }
 
 /**
- * Mirrors a table: header rule plus `rows` body rows.
+ * Mirrors a table: a 44px header row plus `rows` body rows.
  *
- * `rowHeight` is measured, not guessed. A Sync Status row is taller than an app
- * row because it carries a status badge, and a shared default left the run
- * history skeleton 13px short per row.
+ * `rowHeight` is measured, not guessed. The 53px default is an app row, which
+ * its logo sets; a Sync Status row carries a status badge and is 56px. The old
+ * 42px default predated the logos and left By App 11px short per row.
  */
 export function SkeletonTable({
-  rows, columns = 6, rowHeight = 42,
+  rows, columns = 6, rowHeight = 53,
 }: {
   rows: number;
   columns?: number;
@@ -148,7 +162,16 @@ export function SkeletonTable({
 }) {
   return (
     <div>
-      <div style={{ display: 'flex', gap: '0.9rem', padding: '0.7rem 0.9rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.9rem',
+          alignItems: 'center',
+          height: 44,
+          padding: '0 0.9rem',
+          boxSizing: 'border-box',
+        }}
+      >
         {Array.from({ length: columns }, (_, i) => (
           <Skeleton key={i} height={14} width={i === 0 ? '26%' : '12%'} />
         ))}

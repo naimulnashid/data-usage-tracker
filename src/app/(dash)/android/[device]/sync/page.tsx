@@ -169,7 +169,10 @@ export default async function AndroidSyncPage({
             <tbody>
               {data.runs.map((r, i) => (
                 <tr key={`${r.receivedAt}-${i}`}>
-                  <td>{formatDateTime(r.receivedAt)}</td>
+                  {/* nowrap, as on the Windows run history: on a phone the
+                      date broke into lines and each row reached 109px, while
+                      the table scrolled sideways regardless. */}
+                  <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.receivedAt)}</td>
                   <td>
                     <span className={`badge ${r.status === 'success' ? 'badge--ok' : 'badge--bad'}`}>
                       {r.status}

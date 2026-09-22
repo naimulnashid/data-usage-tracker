@@ -159,7 +159,12 @@ export default async function SyncPage({
             <tbody>
               {runs.map((r, i) => (
                 <tr key={r.id} className="animate-in" style={{ animationDelay: `${Math.min(i * 18, 360)}ms` }}>
-                  <td className="mono" style={{ fontSize: 'var(--fs-small)' }}>{formatDateTime(r.startedAt)}</td>
+                  {/* nowrap: the other six columns cannot narrow past their
+                      headers, so below ~1,080px this was the one that gave,
+                      breaking the date into three lines and every row to
+                      99px. The table-wrap scrolls sideways instead, as it
+                      already did on a phone. */}
+                  <td className="mono" style={{ fontSize: 'var(--fs-small)', whiteSpace: 'nowrap' }}>{formatDateTime(r.startedAt)}</td>
                   <td>
                     <span className={`badge ${r.status === 'success' ? 'badge--ok' : r.status === 'failed' ? 'badge--bad' : ''}`}>
                       {r.status}
