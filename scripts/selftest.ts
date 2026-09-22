@@ -29,6 +29,7 @@ import {
   coveredDays, daySpanLabel, eachDay, fillDays, fillHours, isKnown,
 } from '../src/lib/days.js';
 import { safeNextPath } from '../src/lib/safe-redirect.js';
+import { byNamingOrder } from '../src/lib/android-names.js';
 import { isSameOrigin } from '../src/lib/same-origin.js';
 import { parseDays, ALL_DAYS, DEFAULT_DAYS } from '../src/lib/scope.js';
 import { LoginThrottle, DEFAULT_THROTTLE } from '../src/lib/login-throttle.js';
@@ -332,6 +333,22 @@ function dayChecks(): void {
   check('mixed odd and even phone hours fill all 24 rather than drop a row',
     shifted.length === 24 && shifted[3]!.total === 1 && shifted[4]!.total === 1);
   check('no rows stays no rows', fillHours([], zeroHour).length === 0);
+
+  // A shared uid's name. Google Backup Transport sorts before Play services,
+  // and named Play services' uid on a phone where the two share it.
+  const namedBy = (pkgs: [string, boolean][]) =>
+    pkgs.map(([p, sys]) => ({ package: p, isSystem: sys })).sort(byNamingOrder)[0]!.package;
+  check('Play services names its shared uid ahead of a package sorting earlier',
+    namedBy([
+      ['com.google.android.gsf', true],
+      ['com.google.android.backuptransport', true],
+      ['com.google.android.gms', true],
+    ]) === 'com.google.android.gms');
+  check('an unlisted shared uid still takes the first package by name',
+    namedBy([['com.android.keychain', true], ['android', true], ['com.android.inputdevices', true]])
+      === 'android');
+  check('a user app still names a shared uid ahead of a system package',
+    namedBy([['com.a.system', true], ['com.z.user', false]]) === 'com.z.user');
 
   // Collector windows at UTC+6, fixed rather than the machine's zone so the
   // test means the same thing anywhere.

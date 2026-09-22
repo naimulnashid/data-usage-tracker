@@ -22,6 +22,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
 import { configPath } from './config-path';
 import { assignColors, type AppColorMap } from './app-colors';
+import { byNamingOrder } from './android-names';
 import { deviceSlug } from './nav';
 import {
   eachDay, fillDays, fillHours, laterOf, quietDay, unknownDay, type DailyPoint, type DayRange,
@@ -109,15 +110,18 @@ export interface AndroidOverview {
  * Resolve a uid to something a person can read.
  *
  * The label comes from the phone's own PackageManager, so there is no curated
- * name table on this side. A shared uid picks the first non-system package by
- * name and reports how many others there are, rather than silently choosing.
+ * name table on this side. A shared uid takes the label of the first package
+ * in `byNamingOrder` (android-names.ts) and reports how many others there are,
+ * rather than silently choosing.
  */
 function appNames(db: DatabaseSync, deviceId: string): Map<number, { name: string; packages: number }> {
-  const rows = db
-    .prepare(
-      `SELECT uid, label, package, is_system FROM android_apps WHERE ${OF_DEVICE} ORDER BY is_system, package`,
-    )
-    .all(deviceId) as { uid: number; label: string; package: string; is_system: number }[];
+  const rows = (
+    db
+      .prepare(`SELECT uid, label, package, is_system FROM android_apps WHERE ${OF_DEVICE}`)
+      .all(deviceId) as { uid: number; label: string; package: string; is_system: number }[]
+  )
+    .map((r) => ({ ...r, isSystem: Number(r.is_system) === 1 }))
+    .sort(byNamingOrder);
 
   const out = new Map<number, { name: string; packages: number }>();
   for (const r of rows) {
@@ -769,14 +773,15 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
         .all(deviceId, uid, from) as { n: string; b: number }[]
     ).map((r) => ({ network: r.n, total: Number(r.b) }));
 
+    // In naming order, so the package the page is named after comes first.
     const packages = (
       db
-        .prepare(
-          `SELECT package p, label l, is_system s FROM android_apps
-           WHERE ${OF_DEVICE} AND uid = ? ORDER BY is_system, package`,
-        )
+        .prepare(`SELECT package p, label l, is_system s FROM android_apps WHERE ${OF_DEVICE} AND uid = ?`)
         .all(deviceId, uid) as { p: string; l: string; s: number }[]
-    ).map((r) => ({ packageName: r.p, label: r.l, isSystem: Number(r.s) === 1 }));
+    )
+      .map((r) => ({ package: r.p, label: r.l, isSystem: Number(r.s) === 1 }))
+      .sort(byNamingOrder)
+      .map((r) => ({ packageName: r.package, label: r.label, isSystem: r.isSystem }));
 
     const scopedTotal = Number(
       (
