@@ -1,7 +1,43 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+/*
+  Release signing, OPTIONAL by design.
+
+  local.properties (never committed) may carry `signing.properties=<path>`,
+  naming a properties file that holds storeFile, storePassword, keyAlias and
+  keyPassword. storeFile is resolved relative to that file, so the key and its
+  properties live together outside the repo.
+
+  Without the line, a release build comes out unsigned: a fresh clone still
+  builds, and debug is unaffected. WITH it, a missing file or an unedited
+  CHANGE_ME fails the build rather than falling back -- a release signed with
+  nothing, or with the debug key, is the silent failure worth refusing.
+*/
+fun loadProps(f: File) = Properties().apply { f.inputStream().use { load(it) } }
+
+val releaseSigning: Properties? = rootProject.file("local.properties")
+    .takeIf { it.exists() }
+    ?.let { loadProps(it).getProperty("signing.properties") }
+    ?.let { path ->
+        val f = file(path)
+        if (!f.exists()) {
+            throw GradleException("signing.properties names $f, which does not exist. Is the drive holding the key mounted?")
+        }
+        loadProps(f).also { p ->
+            for (k in listOf("storeFile", "storePassword", "keyAlias", "keyPassword")) {
+                val v = p.getProperty(k)
+                if (v.isNullOrBlank() || v == "CHANGE_ME") {
+                    throw GradleException("$k is not set in $f")
+                }
+            }
+            p.setProperty("storeFile", f.parentFile.resolve(p.getProperty("storeFile")).path)
+        }
+    }
 
 android {
     namespace = "com.naimul.datausage"
@@ -25,8 +61,8 @@ android {
         // check will name anything else.
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
     // BuildConfig is off by default from AGP 8; Uploader reports the app
@@ -36,13 +72,26 @@ android {
         buildConfig = true
     }
 
+    signingConfigs {
+        releaseSigning?.let { p ->
+            create("release") {
+                storeFile = file(p.getProperty("storeFile"))
+                storePassword = p.getProperty("storePassword")
+                keyAlias = p.getProperty("keyAlias")
+                keyPassword = p.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            // The published APK is a release build under a key kept off C:.
+            // Debug builds use ~/.android/debug.keystore, which is on C: and
+            // dies with a Windows reset -- after which no build could update a
+            // phone that has the debug-signed app installed.
+            signingConfig = signingConfigs.findByName("release")
         }
-        // Debug is what actually gets installed here: this app is sideloaded
-        // onto one phone over adb, never published, so a release signing config
-        // would be ceremony with no reader.
     }
 
     compileOptions {

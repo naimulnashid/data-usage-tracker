@@ -221,8 +221,15 @@ dashboard password never lives on a phone:
 ANDROID_INGEST_TOKEN=another-long-random-string
 ```
 
-Make sure `DASHBOARD_HOST=0.0.0.0` is set (step 2), then build and install the
-app:
+Make sure `DASHBOARD_HOST=0.0.0.0` is set (step 2), then install the app. The
+simplest way is the signed APK attached to each
+[release](https://github.com/naimulnashid/data-usage-tracker/releases):
+
+```bash
+adb install -r data-usage-reporter-1.3.apk
+```
+
+Or build it yourself:
 
 ```bash
 cd android && .\gradlew.bat assembleDebug
@@ -236,6 +243,25 @@ Gradle needs a JDK; Android Studio's bundled one works as `JAVA_HOME`. On
 Xiaomi's MIUI, `adb install` is refused unless Developer options → **Install via
 USB** is on; without that, `adb push` the APK to the phone and install it from
 the file manager.
+
+Android only lets an APK update an installed copy signed with the same key. So
+switching between the release APK and your own build means uninstalling first
+(the dashboard keeps everything already uploaded, and the app re-sends the
+phone's history on its first sync).
+
+To sign release builds with a key of your own, create one with `keytool
+-genkeypair` and keep it outside the repo, next to a properties file holding
+`storeFile` (relative to that file), `storePassword`, `keyAlias` and
+`keyPassword`. Then point `android\local.properties` at that file:
+
+```
+signing.properties=D\:/path/to/keystore.properties
+```
+
+`.\gradlew.bat assembleRelease` then writes a signed `app-release.apk`. Without
+that line a release build comes out unsigned, and with it a missing or
+unfinished file fails the build. **Back the key up**: without it, no future
+build can update the installed app.
 
 On the phone, open **Data Usage Reporter** and:
 
