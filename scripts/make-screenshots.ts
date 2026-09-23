@@ -52,7 +52,11 @@ const CHROME = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 ].find((p) => fs.existsSync(p));
 
-/** The window each shot is taken in: wide enough that the sidebar is open. */
+/**
+ * The window each page loads in: wide enough that the sidebar is open. Only
+ * the width survives into the image -- each shot is the WHOLE page, top to
+ * footer, taken by growing the window to the page's height (see below).
+ */
 const VIEWPORT = { width: 1440, height: 900 };
 /** Captured at 2x, so the images stay sharp on a high-density screen. */
 const SCALE = 2;
@@ -60,11 +64,6 @@ const SCALE = 2;
 interface Shot {
   name: string;
   path: string;
-  /**
-   * A section heading to scroll to, so its card sits just under the sticky
-   * top bar. Each page's most distinctive sections are below the fold.
-   */
-  scrollTo?: string;
 }
 
 /**
@@ -75,14 +74,18 @@ interface Shot {
  */
 const DEMO_DEVICES = ['My PC', 'Pixel 8'];
 
-/** Slugs come from the demo's labels: "My PC" and the phone "Pixel 8". */
+/**
+ * Slugs come from the demo's labels: "My PC" and the phone "Pixel 8".
+ *
+ * One shot per page. There used to be six viewport-sized shots, two of them a
+ * second look at an overview scrolled to a lower card ("Activity", "Where it
+ * went"); a full-page capture already contains those.
+ */
 const SHOTS: Shot[] = [
   { name: 'windows-overview', path: '/windows/my-pc' },
-  { name: 'windows-activity', path: '/windows/my-pc', scrollTo: 'Activity' },
   { name: 'windows-apps', path: '/windows/my-pc/apps' },
-  { name: 'windows-app-detail', path: '/windows/my-pc/apps/edge', scrollTo: 'By network' },
+  { name: 'windows-app-detail', path: '/windows/my-pc/apps/edge' },
   { name: 'android-overview', path: '/android/pixel-8' },
-  { name: 'android-networks', path: '/android/pixel-8', scrollTo: 'Where it went' },
 ];
 
 /* ------------------------------------------------------------------ CDP -- */
@@ -260,17 +263,22 @@ async function main(): Promise<void> {
       }
       await sleep(1200);
 
-      if (shot.scrollTo) {
-        const found = await cdp.evaluate<boolean>(`(() => {
-          const h = [...document.querySelectorAll('h2')].find((e) => e.textContent.trim() === ${JSON.stringify(shot.scrollTo)});
-          if (!h) return false;
-          const card = h.closest('.card') ?? h;
-          const bar = document.querySelector('.topbar')?.getBoundingClientRect().height ?? 0;
-          window.scrollTo({ top: card.getBoundingClientRect().top + window.scrollY - bar - 20, behavior: 'instant' });
-          return true;
-        })()`);
-        if (!found) throw new Error(`${shot.path} has no section headed "${shot.scrollTo}"`);
-        await sleep(400);
+      // The whole page: grow the window to the document's height and capture
+      // that. `captureBeyondViewport` is not used because it renders the
+      // overflow without re-laying out the page, and the sticky sidebar and
+      // top bar are pinned to the viewport -- they would stop at 900px and
+      // leave the rest of the image without them. A window as tall as the
+      // page has neither problem. The height is re-read until it holds,
+      // because growing the window can itself move it (anything sized in vh).
+      let height = 0;
+      for (let i = 0; i < 5; i++) {
+        const h = await cdp.evaluate<number>('Math.ceil(document.documentElement.scrollHeight)');
+        if (h === height) break;
+        height = h;
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
+          width: VIEWPORT.width, height, deviceScaleFactor: SCALE, mobile: false,
+        });
+        await sleep(500);
       }
 
       // WebP: a 2x capture of a dark UI is several times smaller than PNG at
@@ -279,9 +287,12 @@ async function main(): Promise<void> {
       const res = (await cdp.send('Page.captureScreenshot', {
         format: 'webp', quality: 92, captureBeyondViewport: false,
       })) as { data: string };
+
+      // Back to the loading window, so the next page lays out as a browser would.
+      await cdp.send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: SCALE, mobile: false });
       const file = path.join(OUT_DIR, `${shot.name}.webp`);
       fs.writeFileSync(file, Buffer.from(res.data, 'base64'));
-      console.log(`  ${path.relative(ROOT, file)}  ${(fs.statSync(file).size / 1024).toFixed(0)} KB`);
+      console.log(`  ${path.relative(ROOT, file)}  ${VIEWPORT.width}x${height}  ${(fs.statSync(file).size / 1024).toFixed(0)} KB`);
     }
 
     cdp.close();

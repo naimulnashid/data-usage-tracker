@@ -20,34 +20,30 @@ reset, and shows them in a Next.js dashboard that runs on your own machine.
   depends on Windows internals and a third-party parser. Expect to read the
   scripts before trusting them with your data.
 
-![The Windows overview: all-time, 30-day, 7-day and latest-day totals above the daily trend](docs/screenshots/windows-overview.webp)
+The whole Windows overview: totals, the daily trend, a six-month heat map (outlined
+days were never collected, which is not the same as a quiet day), each day
+split by app, the hour of day, and one heavy app set apart from the rest.
+
+![The Windows overview, top to bottom: all-time, 30-day, 7-day and latest-day totals; the daily trend; the activity heat map; daily usage by app; usage by hour of day; and qBittorrent against everything else](docs/screenshots/windows-overview.webp)
 
 <details>
-<summary><b>The heat map, every app, one app in detail, and a phone</b></summary>
-
-A six-month heat map, then each day split by app. Outlined days were never
-collected, which is not the same as a quiet day.
-
-![The activity heat map above the daily-by-app chart](docs/screenshots/windows-activity.webp)
+<summary><b>Every app, one app in detail, and a phone</b></summary>
 
 Every app, ranked. Each bar is download, then upload in a tint of the app's
 own colour.
 
-![The By App page: the ten largest apps as stacked download and upload bars](docs/screenshots/windows-apps.webp)
+![The By App page: the ten largest apps as stacked download and upload bars, above the full app table](docs/screenshots/windows-apps.webp)
 
 One app in detail: the networks it used, named as the collector sees them
 and "unnamed" until it has, and the separate programs merged into it.
 
-![An app's detail page: traffic by network, and the three programs merged into Microsoft Edge](docs/screenshots/windows-app-detail.webp)
+![An app's detail page: its totals, daily usage and hour of day, traffic by network, the three programs merged into Microsoft Edge, and the raw SRUM identities grouped under it](docs/screenshots/windows-app-detail.webp)
 
-A phone, in its own accent.
+A phone, in its own accent. Near the bottom, where its traffic went, per
+Wi-Fi network, with tethering kept apart: the laptop has already counted
+those bytes.
 
-![A phone's overview: totals above its daily trend](docs/screenshots/android-overview.webp)
-
-Where the phone's traffic went, per Wi-Fi network, with tethering kept apart:
-the laptop has already counted those bytes.
-
-![Wi-Fi against mobile data, traffic per Wi-Fi network, and the tethering note](docs/screenshots/android-networks.webp)
+![A phone's overview, top to bottom: totals, trend, heat map, daily usage by app, hour of day, Wi-Fi against mobile data with traffic per Wi-Fi network, and the tethering note](docs/screenshots/android-overview.webp)
 
 </details>
 
@@ -336,7 +332,8 @@ npm run demo:shots
 ```
 
 It starts its own dashboard on the demo data with a one-off password, captures
-six pages in headless Chrome or Edge into `docs/screenshots/`, and stops it.
+four whole pages, top to bottom, in headless Chrome or Edge into
+`docs/screenshots/`, and stops it.
 It needs a current build, and it refuses to capture any page that lists a
 device other than the demo's two. That way a build that ignored
 `DATA_USAGE_CONFIG` cannot put your own data into an image.
