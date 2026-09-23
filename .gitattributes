@@ -12,5 +12,10 @@ scripts/task/*.xml binary
 # which is the worst possible moment to discover it.
 android/gradlew text eol=lf
 
+# Its Windows twin is the opposite: cmd.exe mis-parses labels and GOTOs in an
+# LF batch file, and Gradle ships it CRLF. Pinned so every clone gets CRLF
+# whatever core.autocrlf says.
+android/gradlew.bat text eol=crlf
+
 # The wrapper jar is a binary and must never be eol-normalised.
 android/gradle/wrapper/gradle-wrapper.jar binary
