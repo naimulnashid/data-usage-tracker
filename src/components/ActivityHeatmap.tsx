@@ -1,44 +1,21 @@
 'use client';
 
 import { useMemo } from 'react';
-import { formatBytes, formatDayLong } from '@/lib/format';
+import Link from 'next/link';
+import { formatBytes, formatDayLong, formatDayShort } from '@/lib/format';
 import { HEATMAP_RAMP, heatmapColor } from '@/lib/app-colors';
+import {
+  WEEKS, DAY_LABELS, recentBlock, expandedBlocks, hasOlderThanRecent, blockLabel,
+  type HeatmapBlock, type HeatmapDay,
+} from '@/lib/heatmap';
 
-/**
- * Six months of history. `WEEKS` is the single source of truth for the column
- * count -- it drives the grid template inline, so the CSS never hard-codes it.
- * Keep `RANGE_LABEL` in step if you change it.
- */
-const WEEKS = 26;
+export type { HeatmapDay } from '@/lib/heatmap';
+
+/** Keep in step with `WEEKS` in `lib/heatmap.ts`. */
 const RANGE_LABEL = '6 months';
 
-/** Weeks run Saturday -> Friday, so row 0 is Saturday. */
-const DAY_LABELS = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const MONTH_NAMES = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-export interface HeatmapDay {
-  date: string;
-  total: number;
-}
-
-interface Cell {
-  date: string;
-  total: number;
-  known: boolean;
-  future: boolean;
-  column: number;
-  row: number;
-}
-
-function isoDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 /**
- * Daily total over `RANGE_LABEL`, GitHub-style, coloured with the accent ramp.
+ * One block of the heat map, GitHub-style, coloured with the accent ramp.
  *
  * Month labels, weekday labels and cells all live in ONE grid with explicit
  * placement. That is what keeps the three registered with each other: the cells
@@ -47,7 +24,7 @@ function isoDay(date: Date): string {
  *
  * Cells are fluid (`1fr` columns plus `aspect-ratio: 1`) rather than a fixed
  * pixel size, so the grid fills whatever width the panel has and stays square
- * at any width. Fewer weeks therefore produce *larger* cells.
+ * at any width.
  *
  * Cells use native `title` tooltips deliberately. A styled, absolutely
  * positioned tooltip inside this grid would contribute layout width to the
@@ -57,143 +34,182 @@ function isoDay(date: Date): string {
  * Days with no row at all are drawn as "no data" rather than as a zero. Before
  * collection started there is genuinely nothing to report, and colouring that
  * the same as a real quiet day would invent history the project does not have.
+ *
+ * `max` is passed in rather than taken from the block so that the expanded
+ * page's blocks share one scale: a block's colours must mean the same bytes as
+ * the block above it.
  */
-export function ActivityHeatmap({ daily }: { daily: HeatmapDay[] }) {
-  const { cells, months, max, total, activeDays } = useMemo(() => {
-    const byDate = new Map(daily.map((d) => [d.date, d.total]));
+function HeatmapPlot({ block, max, label }: { block: HeatmapBlock; max: number; label: string }) {
+  return (
+    <div className="heatmap-scroll">
+      <div
+        className="heatmap-plot"
+        role="img"
+        aria-label={label}
+        style={{
+          gridTemplateColumns: `var(--hm-daycol) repeat(${WEEKS}, minmax(var(--hm-min), 1fr))`,
+        }}
+      >
+        {block.months.map((mark) => (
+          <span
+            key={`${mark.label}-${mark.column}`}
+            className="heatmap-month"
+            style={{ gridColumn: mark.column + 2, gridRow: 1 }}
+            aria-hidden
+          >
+            {mark.label}
+          </span>
+        ))}
 
-    // Local midnight today, expressed in UTC terms so the arithmetic below
-    // stays on whole days. local_date is already machine-local, so the last
-    // column lines up with the user's calendar day.
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        {DAY_LABELS.map((day, i) => (
+          <span
+            key={day}
+            className="heatmap-day"
+            style={{ gridColumn: 1, gridRow: i + 2 }}
+            aria-hidden
+          >
+            {day}
+          </span>
+        ))}
 
-    // Saturday-first weeks: Sat = 6 in getUTCDay(), so (day + 1) % 7 puts
-    // Saturday at row 0 and Friday at row 6.
-    const rowOf = (date: Date) => (date.getUTCDay() + 1) % 7;
+        {block.cells.map((cell) => {
+          const title = cell.hidden
+            ? ''
+            : cell.known
+              ? `${formatDayLong(cell.date)} - ${formatBytes(cell.total)}`
+              : `${formatDayLong(cell.date)} - no data collected`;
+          return (
+            <span
+              key={cell.date}
+              className="heatmap-cell"
+              data-nodata={!cell.hidden && !cell.known}
+              title={title}
+              style={{
+                gridColumn: cell.column + 2,
+                gridRow: cell.row + 2,
+                background: cell.hidden
+                  ? 'transparent'
+                  : cell.known
+                    ? heatmapColor(cell.total, max)
+                    : 'var(--hm-none)',
+                visibility: cell.hidden ? 'hidden' : 'visible',
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-    const currentWeekStart = new Date(today);
-    currentWeekStart.setUTCDate(today.getUTCDate() - rowOf(today));
+/**
+ * Summary on the left, colour scale on the right. `children`, when given, sits
+ * centred between them -- the overview puts its Expand button there.
+ */
+function HeatmapLegend({
+  total, activeDays, span, children,
+}: {
+  total: number;
+  activeDays: number;
+  span: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={`heatmap-legend${children ? ' heatmap-legend--split' : ''}`}>
+      <span className="heatmap-summary">
+        {formatBytes(total)} across {activeDays} active {activeDays === 1 ? 'day' : 'days'} {span}
+      </span>
+      {children && <span className="heatmap-legend-middle">{children}</span>}
+      <span className="heatmap-scale">
+        Less
+        {HEATMAP_RAMP.map((color) => (
+          <span key={color} className="heatmap-swatch" style={{ background: color }} />
+        ))}
+        More
+      </span>
+    </div>
+  );
+}
 
-    const flat: Cell[] = [];
-    const monthMarks: Array<{ label: string; column: number }> = [];
-    let peak = 0;
-    let sum = 0;
-    let active = 0;
-    let lastMonth = -1;
+/**
+ * The overview card: the last `RANGE_LABEL`.
+ *
+ * `expandHref` offers the full-history page, but the button only appears once
+ * `earliest` -- the first day with data -- is older than this block reaches.
+ * Until then the expanded page would show nothing this card does not.
+ */
+export function ActivityHeatmap({
+  daily, earliest = null, expandHref,
+}: {
+  daily: HeatmapDay[];
+  earliest?: string | null;
+  expandHref?: string;
+}) {
+  const { block, older } = useMemo(
+    () => ({ block: recentBlock(daily), older: hasOlderThanRecent(earliest) }),
+    [daily, earliest],
+  );
 
-    for (let w = WEEKS - 1; w >= 0; w -= 1) {
-      const column = WEEKS - 1 - w;
-      const weekStart = new Date(currentWeekStart);
-      weekStart.setUTCDate(currentWeekStart.getUTCDate() - w * 7);
+  return (
+    <div className="heatmap">
+      <HeatmapPlot
+        block={block}
+        max={block.peak}
+        label={`Daily data usage over the last ${RANGE_LABEL}`}
+      />
+      <HeatmapLegend
+        total={block.total}
+        activeDays={block.activeDays}
+        span={`in the last ${RANGE_LABEL}`}
+      >
+        {expandHref && older && <Link href={expandHref} className="chip">Expand</Link>}
+      </HeatmapLegend>
+    </div>
+  );
+}
 
-      const month = weekStart.getUTCMonth();
-      if (month !== lastMonth) {
-        monthMarks.push({ label: MONTH_NAMES[month]!, column });
-        lastMonth = month;
-      }
-
-      for (let d = 0; d < 7; d += 1) {
-        const cellDate = new Date(weekStart);
-        cellDate.setUTCDate(weekStart.getUTCDate() + d);
-        const key = isoDay(cellDate);
-        const known = byDate.has(key);
-        const value = byDate.get(key) ?? 0;
-
-        if (known) {
-          peak = Math.max(peak, value);
-          sum += value;
-          if (value > 0) active += 1;
-        }
-
-        flat.push({
-          date: key,
-          total: value,
-          known,
-          future: cellDate.getTime() > today.getTime(),
-          column,
-          row: d,
-        });
-      }
-    }
-
-    return { cells: flat, months: monthMarks, max: peak, total: sum, activeDays: active };
-  }, [daily]);
+/**
+ * The full history, as blocks of the overview's width stacked oldest first.
+ *
+ * Growing downward rather than sideways is the point: every block has the
+ * overview's `WEEKS` columns, so cells stay the size they are there, however
+ * many years accumulate.
+ */
+export function ExpandedHeatmap({
+  daily, earliest,
+}: {
+  daily: HeatmapDay[];
+  earliest: string | null;
+}) {
+  const { blocks, max, total, activeDays } = useMemo(() => {
+    const all = expandedBlocks(daily, earliest);
+    return {
+      blocks: all,
+      max: Math.max(0, ...all.map((b) => b.peak)),
+      total: all.reduce((s, b) => s + b.total, 0),
+      activeDays: all.reduce((s, b) => s + b.activeDays, 0),
+    };
+  }, [daily, earliest]);
 
   return (
     <div>
-      <div className="heatmap-scroll">
-        <div
-          className="heatmap-plot"
-          role="img"
-          aria-label={`Daily data usage over the last ${RANGE_LABEL}`}
-          style={{
-            gridTemplateColumns: `var(--hm-daycol) repeat(${WEEKS}, minmax(var(--hm-min), 1fr))`,
-          }}
-        >
-          {months.map((mark) => (
-            <span
-              key={`${mark.label}-${mark.column}`}
-              className="heatmap-month"
-              style={{ gridColumn: mark.column + 2, gridRow: 1 }}
-              aria-hidden
-            >
-              {mark.label}
-            </span>
-          ))}
-
-          {DAY_LABELS.map((label, i) => (
-            <span
-              key={label}
-              className="heatmap-day"
-              style={{ gridColumn: 1, gridRow: i + 2 }}
-              aria-hidden
-            >
-              {label}
-            </span>
-          ))}
-
-          {cells.map((cell) => {
-            const title = cell.future
-              ? ''
-              : cell.known
-                ? `${formatDayLong(cell.date)} - ${formatBytes(cell.total)}`
-                : `${formatDayLong(cell.date)} - no data collected`;
-            return (
-              <span
-                key={cell.date}
-                className="heatmap-cell"
-                data-nodata={!cell.future && !cell.known}
-                title={title}
-                style={{
-                  gridColumn: cell.column + 2,
-                  gridRow: cell.row + 2,
-                  background: cell.future
-                    ? 'transparent'
-                    : cell.known
-                      ? heatmapColor(cell.total, max)
-                      : 'var(--hm-none)',
-                  visibility: cell.future ? 'hidden' : 'visible',
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="heatmap-legend">
-        <span>
-          {formatBytes(total)} across {activeDays} active {activeDays === 1 ? 'day' : 'days'} in
-          the last {RANGE_LABEL}
-        </span>
-        <span className="heatmap-scale">
-          Less
-          {HEATMAP_RAMP.map((color) => (
-            <span key={color} className="heatmap-swatch" style={{ background: color }} />
-          ))}
-          More
-        </span>
-      </div>
+      {blocks.map((block) => {
+        const label = blockLabel(block);
+        return (
+          <section key={block.first} className="heatmap-block">
+            <h3 className="heatmap-block-head">
+              <span>{label}</span>
+              <span className="heatmap-block-total">{formatBytes(block.total)}</span>
+            </h3>
+            <HeatmapPlot block={block} max={max} label={`Daily data usage, ${label}`} />
+          </section>
+        );
+      })}
+      <HeatmapLegend
+        total={total}
+        activeDays={activeDays}
+        span={blocks[0] ? `since ${formatDayShort(blocks[0].first)}, ${blocks[0].first.slice(0, 4)}` : ''}
+      />
     </div>
   );
 }

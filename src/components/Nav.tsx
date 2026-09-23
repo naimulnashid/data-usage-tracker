@@ -28,7 +28,9 @@ export function Nav() {
       {pages.map((p) => {
         // Exact match for a section root, prefix match for the rest, so a
         // nested route does not light up Overview as well as its own tab.
-        const active = p.root ? pathname === p.href : pathname.startsWith(p.href);
+        const active = p.root
+          ? pathname === p.href || (p.within ?? []).includes(pathname)
+          : pathname.startsWith(p.href);
         return (
           <Link
             key={p.href}

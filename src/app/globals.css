@@ -585,6 +585,54 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   gap: 5px;
 }
 
+/*
+  With the Expand button, the legend is three columns: summary, button, scale.
+  The two outer columns are equal `1fr`, which is what puts the button in the
+  true middle of the row; with flex and space-between it would sit between
+  two texts of different widths, off-centre. The summary wraps inside its
+  half rather than pushing the button over.
+
+  Sized by the CARD, not the viewport (the container is `.heatmap`), for the
+  reason the top bar wraps on content: a phone in desktop mode reports a wide
+  viewport while the card is narrow. Below 480px the scale no longer fits a
+  third of the row, so it falls back to the plain legend's wrapping flex: the
+  summary on a line of its own, then the button and the scale, which wraps
+  under the button when the two do not fit beside each other. A grid there
+  cannot wrap, so a narrower card would push the scale out of it.
+*/
+.heatmap { container-type: inline-size; }
+
+.heatmap-legend--split {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+}
+.heatmap-legend--split .heatmap-scale { justify-self: end; }
+
+@container (max-width: 480px) {
+  .heatmap-legend--split { display: flex; row-gap: 10px; }
+  .heatmap-legend--split .heatmap-summary { flex-basis: 100%; }
+}
+
+/* The expanded page: blocks of the overview's width, stacked oldest first. */
+.heatmap-block + .heatmap-block { margin-top: 1.6rem; }
+
+.heatmap-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 7px 4px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.heatmap-block-total {
+  font-weight: 500;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ------------------------------------------------------------------ login */
 
 .login-screen {

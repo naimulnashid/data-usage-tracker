@@ -47,12 +47,23 @@ export function Sidebar({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // A phone gets the desktop layout (see `viewport` in app/layout.tsx), so
+    // the 860px media query that used to fold the rail never matches there.
+    // With nothing stored, a phone starts collapsed instead: the full rail
+    // is a quarter of a 1024px page that is already shrunk to fit the screen.
+    // `screen`, not the window: it reports the physical screen whatever the
+    // viewport meta says, and its short side is the phone's width either way up.
+    const phone =
+      window.matchMedia('(pointer: coarse)').matches &&
+      Math.min(window.screen.width, window.screen.height) < 768;
+    let stored: string | null = null;
     try {
-      setCollapsed(window.localStorage.getItem(STORAGE_KEY) === '1');
+      stored = window.localStorage.getItem(STORAGE_KEY);
     } catch {
-      // Private windows and blocked site data throw on access. A sidebar that
-      // is merely always expanded beats a crash.
+      // Private windows and blocked site data throw on access. Falling back
+      // to the default beats a crash.
     }
+    setCollapsed(stored === null ? phone : stored === '1');
     setReady(true);
   }, []);
 

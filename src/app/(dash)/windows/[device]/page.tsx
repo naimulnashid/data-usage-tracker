@@ -13,7 +13,7 @@ import { ChartLegend } from '@/components/ChartLegend';
 import { SplitBar } from '@/components/SplitBar';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { EmptyState, NoDataInScope } from '@/components/EmptyState';
-import { parseDays } from '@/lib/scope';
+import { parseDays, scopeQuery } from '@/lib/scope';
 import { daySpanLabel } from '@/lib/days';
 import {
   formatBytes, formatDayLong, formatDayShort, formatPercent, formatRelative, splitBytes,
@@ -182,7 +182,11 @@ export default async function OverviewPage({
         <CardTitle sub="Daily totals. Outlined days were never collected - before collection started, or lost before a run read them - which is not the same as a quiet day.">
           Activity
         </CardTitle>
-        <ActivityHeatmap daily={heatmap} />
+        <ActivityHeatmap
+          daily={heatmap}
+          earliest={data.coverage?.first ?? null}
+          expandHref={`${base}/activity${scopeQuery(sp)}`}
+        />
       </Card>
 
       <div style={{ height: '1.15rem' }} />

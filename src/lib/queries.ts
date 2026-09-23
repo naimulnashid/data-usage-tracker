@@ -425,11 +425,16 @@ export interface HeatmapDay {
  * return rows only, which drew the laptop's three switched-off days, and every
  * day spent on another network under a scope, as never collected.
  */
-export function getHeatmap(profileId: string | null): HeatmapDay[] {
+export function getHeatmap(profileId: string | null, weeks: number | null = 26): HeatmapDay[] {
   return withDb((db) => {
-    const since = new Date();
-    since.setDate(since.getDate() - 26 * 7);
-    const sinceStr = since.toISOString().slice(0, 10);
+    // `weeks: null` is the expanded page: every day held. An empty string
+    // sorts before every date, so the query and `laterOf` both pass it through.
+    let sinceStr = '';
+    if (weeks !== null) {
+      const since = new Date();
+      since.setDate(since.getDate() - weeks * 7);
+      sinceStr = since.toISOString().slice(0, 10);
+    }
 
     const prof = profileId ? ' AND l2_profile_id = ?' : '';
     const params: (string | number)[] = profileId ? [sinceStr, profileId] : [sinceStr];

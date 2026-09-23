@@ -28,6 +28,9 @@ import {
 import {
   coveredDays, daySpanLabel, eachDay, fillDays, fillHours, isKnown,
 } from '../src/lib/days.js';
+import {
+  recentBlock, hasOlderThanRecent, expandedBlocks, blockLabel,
+} from '../src/lib/heatmap.js';
 import { safeNextPath } from '../src/lib/safe-redirect.js';
 import { byNamingOrder } from '../src/lib/android-names.js';
 import { isSameOrigin } from '../src/lib/same-origin.js';
@@ -275,6 +278,7 @@ async function main(): Promise<void> {
 
   androidChecks();
   dayChecks();
+  heatmapChecks();
   await securityChecks();
 
   console.log(failures === 0 ? '\nAll checks passed.\n' : `\n${failures} check(s) FAILED.\n`);
@@ -375,6 +379,53 @@ function dayChecks(): void {
     daySpanLabel([{ total: 0 }, { total: 5 }, { total: null }]) === '2 days, 1 with traffic');
   check('span label is plain when every day moved data',
     daySpanLabel([{ total: 1 }]) === '1 day');
+}
+
+/* ------------------------------------------------------------------ */
+/* Heat map blocks                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `lib/heatmap.ts` lays out the overview's six months and the expanded page's
+ * stacked blocks. The Expand button's whole condition is `hasOlderThanRecent`,
+ * and no real device has six months yet, so this is where it is proven.
+ */
+function heatmapChecks(): void {
+  console.log('\n== heat map ==');
+
+  const today = new Date(Date.UTC(2026, 8, 22)); // a Tuesday
+  const recent = recentBlock([], today);
+  check('the recent block opens on the Saturday 25 weeks before this one',
+    recent.first === '2026-03-28', recent.first);
+
+  check('no Expand for data the card already shows',
+    !hasOlderThanRecent('2026-03-28', today) && !hasOlderThanRecent(null, today));
+  check('Expand once data is older than the card reaches',
+    hasOlderThanRecent('2026-03-27', today));
+
+  const blocks = expandedBlocks([{ date: '2026-07-22', total: 5 }], '2026-07-22', today);
+  check('the expanded page starts on 1 January 2026, six months to a block',
+    blocks.length === 2 && blocks[0]!.first === '2026-01-01' && blocks[0]!.last === '2026-06-26'
+      && blocks[1]!.first === '2026-06-27',
+    blocks.map((b) => `${b.first}..${b.last}`).join(' '));
+
+  const drawn = blocks.flatMap((b) => b.cells.filter((c) => !c.hidden).map((c) => c.date));
+  check('every day from 1 January to today is drawn exactly once',
+    drawn.length === 265 && new Set(drawn).size === 265
+      && drawn[0] === '2026-01-01' && drawn.at(-1) === '2026-09-22', String(drawn.length));
+  check('blocks share their totals with the data',
+    blocks[1]!.total === 5 && blocks[1]!.activeDays === 1 && blocks[0]!.total === 0);
+
+  check('a block clipped to 1 January is labelled Jan, not December',
+    blocks[0]!.months[0]?.label === 'Jan' && blocks[0]!.months[0]?.column === 0);
+  check('a one-week month stub is not labelled beside the next month',
+    blocks[1]!.months[0]?.label === 'Jul', blocks[1]!.months.map((m) => m.label).join(','));
+  check('block label names its span',
+    blockLabel(blocks[0]!) === 'Jan 1 – Jun 26, 2026', blockLabel(blocks[0]!));
+
+  const older = expandedBlocks([], '2025-11-03', today);
+  check('data older than 2026 moves the start back to it',
+    older[0]!.first === '2025-11-03' && blockLabel(older[0]!).includes('2025'), older[0]!.first);
 }
 
 /* ------------------------------------------------------------------ */

@@ -22,6 +22,8 @@ export interface DevicePage {
   label: string;
   /** True for a section root, which needs an exact match to light up. */
   root?: boolean;
+  /** Sub-pages of a root that are views of it rather than tabs of their own. */
+  within?: string[];
 }
 
 /**
@@ -44,7 +46,8 @@ export function deviceSlug(label: string): string {
 /** The three pages of one device, rooted at its own URL. */
 function pagesUnder(base: string): DevicePage[] {
   return [
-    { href: base, label: 'Overview', root: true },
+    // The expanded heat map is the overview's Activity card at full size.
+    { href: base, label: 'Overview', root: true, within: [`${base}/activity`] },
     { href: `${base}/apps`, label: 'By App' },
     { href: `${base}/sync`, label: 'Sync Status' },
   ];

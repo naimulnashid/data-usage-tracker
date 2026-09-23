@@ -39,3 +39,15 @@ export function parseDays(raw: string | undefined): number {
   const n = Number(raw);
   return Number.isInteger(n) && n >= 1 && n <= ALL_DAYS ? n : DEFAULT_DAYS;
 }
+
+/**
+ * `?days=` and `?profile=` as a query suffix ("" when neither is set), for a
+ * link between two views of one device that must not reset the reader's scope.
+ */
+export function scopeQuery(sp: { days?: string; profile?: string }): string {
+  const q = new URLSearchParams();
+  if (sp.days) q.set('days', sp.days);
+  if (sp.profile) q.set('profile', sp.profile);
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}

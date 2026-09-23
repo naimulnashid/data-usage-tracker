@@ -13,7 +13,7 @@ import { DailyTrendChart, HourlyChart, StackedTimelineChart } from '@/components
 import { ChartLegend } from '@/components/ChartLegend';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { AndroidEmpty } from '@/components/AndroidEmpty';
-import { parseDays } from '@/lib/scope';
+import { parseDays, scopeQuery } from '@/lib/scope';
 import { daySpanLabel } from '@/lib/days';
 import {
   formatBytes, formatDayLong, formatDayShort, formatPercent, formatRelative, localDayOf, splitBytes,
@@ -157,7 +157,11 @@ export default async function AndroidPage({
         <CardTitle sub="Daily totals. Outlined days are before this phone started reporting - no data was recorded, which is not the same as a quiet day.">
           Activity
         </CardTitle>
-        <ActivityHeatmap daily={heatmap} />
+        <ActivityHeatmap
+          daily={heatmap}
+          earliest={heatmap[0]?.date ?? null}
+          expandHref={`/android/${device.slug}/activity${scopeQuery(sp)}`}
+        />
       </Card>
 
       <div style={{ height: '1.15rem' }} />

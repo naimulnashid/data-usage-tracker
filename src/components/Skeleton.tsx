@@ -115,6 +115,28 @@ export function SkeletonCard({
   );
 }
 
+/**
+ * The expanded heat map page, laptop and phone alike: a back-linked head and
+ * one card.
+ *
+ * Without its own `loading.tsx` a navigation there paints the overview's
+ * skeleton, because `[device]/loading.tsx` wraps the child segment too.
+ *
+ * The card grows a block every six months, and a `loading.tsx` is not given
+ * the route's data, so it is sized to TWO blocks -- what the page draws from
+ * July 2026 to the end of the year. More than that sits below the first
+ * viewport, where nothing visible can jump.
+ */
+export function SkeletonActivityPage() {
+  return (
+    <>
+      <SkeletonPageHead backLink />
+      {/* Card measured 640 / 898 at 997 / 1680 (two blocks), mid 769. */}
+      <SkeletonCard contentHeight={642} />
+    </>
+  );
+}
+
 /** The 1.15rem spacer the real pages put between cards. */
 export function SkeletonGap() {
   return <div style={{ height: '1.15rem' }} />;

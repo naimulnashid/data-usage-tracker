@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
@@ -10,6 +10,20 @@ export const metadata: Metadata = {
   title: { default: 'Data Usage', template: '%s · Data Usage' },
   description: 'Local dashboard over Windows per-app network usage history.',
 };
+
+/**
+ * Every device gets the desktop layout: a phone lays the page out 1024px wide
+ * and zooms it to fit, as its browser's own "desktop site" mode does. Next's
+ * default is `width=device-width`, which gave a phone a 375px layout.
+ *
+ * `width` alone, with no initial scale, so the browser fits the whole width
+ * to the screen and pinch-zoom still works. Next adds `initial-scale=1` by
+ * default, which on a phone opens the page at 100% -- the left 390px of it --
+ * so it is cleared explicitly: Next copies every key a layout names, and
+ * drops an undefined one when it writes the tag. On a real desktop window
+ * none of this changes anything: desktop browsers ignore the viewport meta.
+ */
+export const viewport: Viewport = { width: 1024, initialScale: undefined };
 
 /**
  * Root layout: fonts, globals, nothing else.
