@@ -12,9 +12,16 @@ import { isSameOrigin } from '@/lib/same-origin';
  * The matcher lets Next's own static assets and the favicon through. Browsers
  * fetch `icon.svg` before any session exists, and gating it only makes the
  * login page render with a broken image -- it is a logo, it leaks nothing.
+ *
+ * The installable-app files pass for the same reason: the manifest is fetched
+ * WITHOUT cookies, and the service worker and its offline page are fetched
+ * before a page has signed in. None of them carries anything from the
+ * database -- `manifest.ts` is static for exactly that reason. `pwa/` is a
+ * prefix, so everything added under `public/pwa/` is public too; keep it to
+ * icons and the offline page.
  */
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|icon.svg|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|icon.svg|favicon.ico|manifest.webmanifest|sw.js|pwa/).*)'],
 };
 
 /** Methods that change something, and so must come from this dashboard's own pages. */

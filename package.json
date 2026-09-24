@@ -23,7 +23,8 @@
     "drill": "tsx scripts/reset-drill.ts",
     "restore": "powershell -ExecutionPolicy Bypass -File scripts/restore.ps1",
     "demo:data": "tsx scripts/make-demo-data.ts",
-    "demo:shots": "tsx scripts/make-screenshots.ts"
+    "demo:shots": "tsx scripts/make-screenshots.ts",
+    "pwa:icons": "tsx scripts/make-pwa-icons.ts"
   },
   "dependencies": {
     "geist": "^1.7.2",

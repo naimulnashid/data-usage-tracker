@@ -3,12 +3,17 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { accentStyleSheet } from '@/lib/accent';
+import { ServiceWorker } from '@/components/ServiceWorker';
 
 export const metadata: Metadata = {
   // Pages name themselves (lib/page-title.ts); this adds the suffix, and is
   // the whole title for anything that does not.
   title: { default: 'Data Usage', template: '%s · Data Usage' },
   description: 'Local dashboard over Windows per-app network usage history.',
+  // The manifest itself is src/app/manifest.ts, linked by Next. iOS reads
+  // neither its icons nor its display mode, so it gets its own two lines.
+  appleWebApp: { capable: true, title: 'Data Usage', statusBarStyle: 'black' },
+  icons: { apple: '/pwa/apple-touch-icon.png' },
 };
 
 /**
@@ -23,7 +28,13 @@ export const metadata: Metadata = {
  * drops an undefined one when it writes the tag. On a real desktop window
  * none of this changes anything: desktop browsers ignore the viewport meta.
  */
-export const viewport: Viewport = { width: 1024, initialScale: undefined };
+export const viewport: Viewport = {
+  width: 1024,
+  initialScale: undefined,
+  // The installed app's title bar, and a phone browser's address bar. True
+  // black, like the page, so neither frames it in grey.
+  themeColor: '#000000',
+};
 
 /**
  * Root layout: fonts, globals, nothing else.
@@ -44,7 +55,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <style dangerouslySetInnerHTML={{ __html: accentStyleSheet() }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   );
 }

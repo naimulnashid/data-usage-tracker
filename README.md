@@ -307,6 +307,24 @@ network in the top bar to compare like for like.
 **Watch Sync Status.** Surviving a reset depends on the collector actually
 running; that page is where you notice it has stopped.
 
+### Install as an app
+
+The dashboard is an installable web app: its own window, taskbar icon and
+Start-menu entry, with no browser chrome. In Chrome or Edge, open
+<http://localhost:7843> and choose **Install** in the address bar (or the
+menu's *Install Data Usage*).
+
+**Installing needs a secure context**: `localhost`, `127.0.0.1`, or HTTPS.
+Over plain HTTP on the LAN, a phone's browser offers at most a home-screen
+shortcut that opens in a tab. To install on an Android phone anyway, add the
+dashboard's LAN address (e.g. `http://192.168.0.10:7843`) to
+`chrome://flags/#unsafely-treat-insecure-origin-as-secure` on that phone and
+relaunch Chrome.
+
+The app caches nothing but a "dashboard unreachable" page, shown when the
+computer running it is asleep or off. Your usage data is never stored in the
+browser.
+
 ### Everyday commands
 
 | | |

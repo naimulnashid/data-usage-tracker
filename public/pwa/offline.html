@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  Shown by sw.js when a page cannot reach the dashboard. Self-contained: no
+  script, no stylesheet, no font, because none of those can be fetched either.
+  Neutral colours only -- the accent is generated per device by accent.ts and
+  must not be copied here.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Dashboard unreachable · Data Usage</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: grid; place-items: center; padding: 24px; box-sizing: border-box;
+      background: #000000; color: #f5f5f7;
+      font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    main {
+      max-width: 420px; padding: 28px; border-radius: 16px;
+      background: #0a0a0b; border: 1px solid #1e1e22;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.25rem; font-weight: 600; }
+    p { margin: 0 0 20px; color: #a1a1aa; }
+    a {
+      display: inline-block; padding: 9px 18px; border-radius: 10px;
+      background: #f5f5f7; color: #000000; text-decoration: none; font-weight: 600;
+    }
+    a:hover, a:focus-visible { background: #ffffff; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Dashboard unreachable</h1>
+    <p>The computer running the dashboard did not answer. It may be asleep or
+      off, the dashboard may not be running, or this device may be on another
+      network.</p>
+    <!-- An empty href is this page's own URL: the one that just failed. -->
+    <a href="">Try again</a>
+  </main>
+</body>
+</html>
