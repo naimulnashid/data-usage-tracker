@@ -1,32 +1,36 @@
 import {
-  SkeletonPageHead, SkeletonCard, SkeletonStatGrid, SkeletonTable,
+  SkPageHead, SkStats, SkStat, SkCard, SkText, SkeletonTable,
 } from '@/components/Skeleton';
 
 /**
- * Sync Status skeleton. Re-measured 2026-09-22 at 997 / 1680, sidebar expanded.
+ * Sync Status skeleton, shape-accurate since 2026-09-30 (components/Skeleton.tsx):
+ * the real head, score cards and Run history title, so their wrapping at any
+ * width is the page's own.
  *
- *   page head    89 /  73 -> 81  (the sub wraps to two lines at 997: longSub)
- *   score grid  313 / 147        (three-up, 1.9rem values, wraps at 997)
- *   Run history 3158 / 1929      -- a departure, see below
- *     title     126 / 55  -> 91  (its sub wraps at 997; one line at 1680)
- *     row        56 / 56  -> 56  (the status badge sets it; the date no longer
- *                                 wraps, which made it 99 at 997)
- *
- * The run-history table is a deliberate departure, like By App's. Pagination
- * bounds it at 25 rows, but it varies from 1 to 25 depending on how many runs
- * exist, so no fixed number is right for long. Ten rows covers the first
- * screenful, which is the only part that can visibly jump.
+ * The run table is a deliberate departure. Pagination bounds it at 25 rows,
+ * but it holds 1 to 25 depending on how many runs exist, and a pager and a
+ * "recent errors" block follow it only sometimes. Ten rows of the measured
+ * 56px covers the first screenful, which is the only part that can jump.
  */
 export default function Loading() {
   return (
     <>
-      <SkeletonPageHead longSub />
-      {/* Every card is 147 at both widths, so there is no error to mirror:
-          43 makes the skeleton's card exactly that. */}
-      <SkeletonStatGrid valueHeight={43} />
-      <SkeletonCard contentHeight={0} titleHeight={91}>
+      <SkPageHead
+        title="Sync Status"
+        sub="The reset-survival guarantee depends on the scheduled task actually running. This page is how a broken task gets noticed in time."
+      />
+      <SkStats columns={3}>
+        <SkStat size="small" label="Last successful run" value="51 min ago" sub="30 Sept 2026, 13:01" />
+        <SkStat size="small" label="Rows stored" value="18,315" sub="97 days · 2026-06-23 → 2026-09-30" />
+        <SkStat size="small" label="Last backup" value="OK" sub="Restore from the backup, not the live file" />
+      </SkStats>
+      <SkCard
+        title="Run history"
+        sub="A run that inserts 0 rows is normal and healthy — it means nothing new had accumulated since the last one."
+        aside={<span className="callout-sub" style={{ whiteSpace: 'nowrap' }}><SkText>1–25 of 131</SkText></span>}
+      >
         <SkeletonTable rows={10} columns={7} rowHeight={56} />
-      </SkeletonCard>
+      </SkCard>
     </>
   );
 }

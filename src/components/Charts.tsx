@@ -5,7 +5,8 @@ import {
   Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { useId, type ReactNode } from 'react';
-import { colorOf, uploadTint, type AppColorMap } from '@/lib/app-colors';
+import { useRouter } from 'next/navigation';
+import { colorOf, uploadOf, textColorOf, type AppColorMap } from '@/lib/app-colors';
 import type { AppIconMap } from '@/lib/app-icons';
 import { AppIcon } from './AppIcon';
 import { formatBytes, formatDayShort, formatPercent } from '@/lib/format';
@@ -14,7 +15,7 @@ import type { DailyPoint } from '@/lib/days';
 // Tick labels are text, drawn in the axis stroke colour, so they take the same
 // --text-faint that clears 4.5:1 (the old #6b6b76 was 3.99:1 on black).
 const AXIS = { stroke: 'var(--text-faint)', fontSize: 13 };
-const GRID = '#1a1a1e';
+const GRID = 'var(--chart-grid)';
 
 /*
   Download / upload shades of the one accent.
@@ -26,8 +27,8 @@ const GRID = '#1a1a1e';
   a different accent repaints them. Recharts passes stroke and fill straight
   through to SVG attributes, where `var(--x)` and `color-mix()` are both valid.
 */
-const DOWN_COLOR = 'color-mix(in srgb, var(--accent) 78%, #000)';
-const UP_COLOR = 'color-mix(in srgb, var(--accent-bright) 72%, #fff)';
+const DOWN_COLOR = 'color-mix(in srgb, var(--accent) var(--down-keep), var(--down-mix))';
+const UP_COLOR = 'color-mix(in srgb, var(--accent-bright) var(--up-keep), var(--up-mix))';
 
 /** Bytes -> compact axis label. Axis ticks need to stay narrow. */
 const tickBytes = (v: number) => formatBytes(v, 0);
@@ -73,16 +74,16 @@ function TooltipShell({ label, children }: { label: ReactNode; children: ReactNo
   return (
     <div
       style={{
-        background: '#0c0c0e',
-        border: '1px solid #2c2c33',
+        background: 'var(--tooltip-bg)',
+        border: '1px solid var(--tooltip-border)',
         borderRadius: 10,
         padding: '0.7rem 0.9rem',
         fontSize: 14,
-        boxShadow: '0 12px 30px rgba(0,0,0,0.7)',
+        boxShadow: 'var(--tooltip-shadow)',
         fontVariantNumeric: 'tabular-nums',
       }}
     >
-      <div style={{ color: '#f5f5f7', fontWeight: 600, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: 'var(--text)', fontWeight: 600, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );
@@ -103,7 +104,7 @@ interface Payload {
   collected" are different answers.
 */
 function NoDataNote() {
-  return <div style={{ color: '#a1a1aa' }}>No data collected</div>;
+  return <div style={{ color: 'var(--text-dim)' }}>No data collected</div>;
 }
 
 /* ------------------------------------------------------------- daily trend */
@@ -152,7 +153,7 @@ export function DailyTrendChart({
                   {formatBytes(p.total)}
                   {spike && <span style={{ fontSize: 12, marginLeft: 6 }}>above trend</span>}
                 </div>
-                <div style={{ color: '#a1a1aa', marginTop: 4 }}>
+                <div style={{ color: 'var(--text-dim)', marginTop: 4 }}>
                   ↑ {formatBytes(p.sent ?? 0)} &nbsp; ↓ {formatBytes(p.received ?? 0)}
                 </div>
               </TooltipShell>
@@ -162,7 +163,7 @@ export function DailyTrendChart({
         <Area
           type="monotone" dataKey="total" stroke="var(--accent)" strokeWidth={2}
           fill="url(#trendFill)" animationDuration={900} animationEasing="ease-out"
-          dot={false} activeDot={{ r: 5, fill: 'var(--accent-bright)', stroke: '#000', strokeWidth: 2 }}
+          dot={false} activeDot={{ r: 5, fill: 'var(--accent-bright)', stroke: 'var(--bg-panel)', strokeWidth: 2 }}
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -180,6 +181,8 @@ export interface TopApp {
   received: number;
   /** Percent of attributed traffic in the same scope. */
   share: number;
+  /** The app's detail page, when it earns one. Clicking its bar goes there. */
+  href?: string;
 }
 
 /**
@@ -206,6 +209,14 @@ export function TopAppsChart({
   colors: AppColorMap;
   icons: AppIconMap;
 }) {
+  const router = useRouter();
+  // A bar is a shortcut to the same detail page the table's name links to.
+  // Apps without a page (too little activity) are not clickable, exactly as
+  // the table does not link them.
+  const open = (entry: unknown) => {
+    const href = (entry as { payload?: TopApp } | undefined)?.payload?.href;
+    if (href) router.push(href);
+  };
   return (
     <ChartFigure
       label="Apps that moved the most data"
@@ -217,7 +228,7 @@ export function TopAppsChart({
         <XAxis type="number" tickFormatter={tickBytes} {...AXIS} tickLine={false} axisLine={false} />
         <YAxis type="category" dataKey="name" {...AXIS} tickLine={false} axisLine={false} width={140} />
         <Tooltip
-          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+          cursor={{ fill: 'var(--chart-cursor)' }}
           content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
             // Read the whole row rather than just the bar's value: the split
@@ -236,9 +247,9 @@ export function TopAppsChart({
                   </span>
                 }
               >
-                <div style={{ color, fontSize: 17, fontWeight: 650 }}>
+                <div style={{ color: textColorOf(colors, p.name), fontSize: 17, fontWeight: 650 }}>
                   {formatBytes(p.total)}
-                  <span style={{ color: '#a1a1aa', fontSize: 13, fontWeight: 500, marginLeft: 7 }}>
+                  <span style={{ color: 'var(--text-dim)', fontSize: 13, fontWeight: 500, marginLeft: 7 }}>
                     {formatPercent(p.share)} of traffic
                   </span>
                 </div>
@@ -247,16 +258,17 @@ export function TopAppsChart({
                     arrows carry the meaning; the same pair is used on every
                     score card, so spelling it out here would be the only place
                     that does. */}
-                <div style={{ color: '#a1a1aa', marginTop: 6, display: 'grid', gap: 3 }}>
+                <div style={{ color: 'var(--text-dim)', marginTop: 6, display: 'grid', gap: 3 }}>
                   <span>
                     &darr; {formatBytes(p.received)}
-                    <span style={{ color: '#6b6b76', marginLeft: 6 }}>{formatPercent(downShare)}</span>
+                    <span style={{ color: 'var(--text-faint)', marginLeft: 6 }}>{formatPercent(downShare)}</span>
                   </span>
                   <span>
                     &uarr; {formatBytes(p.sent)}
-                    <span style={{ color: '#6b6b76', marginLeft: 6 }}>{formatPercent(100 - downShare)}</span>
+                    <span style={{ color: 'var(--text-faint)', marginLeft: 6 }}>{formatPercent(100 - downShare)}</span>
                   </span>
                 </div>
+                {p.href && <div className="tooltip-hint">Click the bar for details</div>}
               </TooltipShell>
             );
           }}
@@ -273,14 +285,14 @@ export function TopAppsChart({
           The radius goes on the upload segment alone, since it is the one that
           ends the bar.
         */}
-        <Bar dataKey="received" stackId="io" animationDuration={800} animationEasing="ease-out">
+        <Bar dataKey="received" stackId="io" animationDuration={800} animationEasing="ease-out" onClick={open}>
           {data.map((d) => (
-            <Cell key={d.name} fill={colorOf(colors, d.name)} />
+            <Cell key={d.name} fill={colorOf(colors, d.name)} className={d.href ? 'bar-link' : undefined} />
           ))}
         </Bar>
-        <Bar dataKey="sent" stackId="io" radius={[0, 6, 6, 0]} animationDuration={800} animationEasing="ease-out">
+        <Bar dataKey="sent" stackId="io" radius={[0, 6, 6, 0]} animationDuration={800} animationEasing="ease-out" onClick={open}>
           {data.map((d) => (
-            <Cell key={d.name} fill={uploadTint(colorOf(colors, d.name))} />
+            <Cell key={d.name} fill={uploadOf(colors, d.name)} className={d.href ? 'bar-link' : undefined} />
           ))}
         </Bar>
       </BarChart>
@@ -334,7 +346,7 @@ export function StackedTimelineChart({
                   {formatBytes(total)}
                 </div>
                 {rows.slice(0, 9).map((p) => (
-                  <div key={String(p.dataKey)} style={{ display: 'flex', gap: 10, justifyContent: 'space-between', color: '#d4d4d8' }}>
+                  <div key={String(p.dataKey)} style={{ display: 'flex', gap: 10, justifyContent: 'space-between', color: 'var(--text-dim)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color }} />
                       {String(p.dataKey)}
@@ -399,7 +411,7 @@ export function HourlyChart({
         />
         <YAxis tickFormatter={tickBytes} {...AXIS} tickLine={false} axisLine={false} width={64} />
         <Tooltip
-          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+          cursor={{ fill: 'var(--chart-cursor)' }}
           content={({ active, payload, label }) => {
             if (!active || !payload?.length) return null;
             const p = payload[0]?.payload as { sent: number; received: number; total: number };
@@ -409,7 +421,7 @@ export function HourlyChart({
                 <div style={{ color: 'var(--accent-bright)', fontSize: 17, fontWeight: 650 }}>
                   {formatBytes(p.total)}
                 </div>
-                <div style={{ color: '#d4d4d8', marginTop: 5, display: 'grid', gap: 2 }}>
+                <div style={{ color: 'var(--text-dim)', marginTop: 5, display: 'grid', gap: 2 }}>
                   <span>
                     <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: DOWN_COLOR, marginRight: 6 }} />
                     Down {formatBytes(p.received)}
@@ -480,7 +492,7 @@ export function AppDailyChart({
         <XAxis dataKey="date" tickFormatter={(v) => formatDayShort(String(v))} {...AXIS} tickLine={false} axisLine={false} minTickGap={28} />
         <YAxis tickFormatter={tickBytes} {...AXIS} tickLine={false} axisLine={false} width={64} />
         <Tooltip
-          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+          cursor={{ fill: 'var(--chart-cursor)' }}
           content={({ active, payload, label }) => {
             if (!active || !payload?.length) return null;
             const p = payload[0]?.payload as DailyPoint;
@@ -492,7 +504,7 @@ export function AppDailyChart({
                 <div style={{ color: 'var(--accent-bright)', fontSize: 17, fontWeight: 650 }}>
                   {formatBytes(p.total)}
                 </div>
-                <div style={{ color: '#a1a1aa', marginTop: 4 }}>
+                <div style={{ color: 'var(--text-dim)', marginTop: 4 }}>
                   &darr; {formatBytes(p.received ?? 0)} &nbsp; &uarr; {formatBytes(p.sent ?? 0)}
                 </div>
               </TooltipShell>

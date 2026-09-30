@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { accentStyleSheet } from '@/lib/accent';
+import { THEME_SCRIPT, THEME_COLORS } from '@/lib/theme';
 import { ServiceWorker } from '@/components/ServiceWorker';
 
 export const metadata: Metadata = {
@@ -31,9 +32,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 1024,
   initialScale: undefined,
-  // The installed app's title bar, and a phone browser's address bar. True
-  // black, like the page, so neither frames it in grey.
-  themeColor: '#000000',
+  // The installed app's title bar, and a phone browser's address bar, in the
+  // page's own canvas colour so neither frames it. This is the dark theme's;
+  // the theme script (lib/theme.ts) rewrites it when the light one is on.
+  themeColor: THEME_COLORS.dark,
 };
 
 /**
@@ -51,8 +53,12 @@ export const viewport: Viewport = {
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    // suppressHydrationWarning: the theme script sets data-theme and
+    // color-scheme on <html> before React hydrates, by design.
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
+        {/* First in <head>, so the right theme is set before anything paints. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <style dangerouslySetInnerHTML={{ __html: accentStyleSheet() }} />
       </head>
       <body>

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
 import { notFound } from 'next/navigation';
 import {
-  getByApp, getAppColorMap, getRowCount, windowsDeviceBySlug, databaseExists, getWindowsAppNames, type Scope,
+  getByApp, getAppColorMap, getAppColorOverrides, getRowCount, windowsDeviceBySlug, databaseExists, getWindowsAppNames, type Scope,
 } from '@/lib/queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
@@ -55,6 +55,7 @@ export default async function ByAppPage({
 
   const top = data.apps.slice(0, 10).map((a) => ({
     name: a.name, total: a.total, sent: a.sent, received: a.received, share: a.share,
+    href: a.detailed ? `${base}/apps/${encodeURIComponent(a.key)}${search}` : undefined,
   }));
 
   return (
@@ -89,7 +90,7 @@ export default async function ByAppPage({
         >
           Apps
         </CardTitle>
-        <AppTable apps={data.apps} colors={colors} icons={icons} search={search} base={base} device={device.slug} />
+        <AppTable apps={data.apps} colors={colors} custom={[...getAppColorOverrides().keys()]} icons={icons} search={search} base={base} device={device.slug} />
       </Card>
     </>
   );

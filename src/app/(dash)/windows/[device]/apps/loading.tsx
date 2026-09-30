@@ -1,31 +1,32 @@
 import {
-  SkeletonPageHead, SkeletonCard, SkeletonGap, SkeletonTable,
+  SkPageHead, SkCard, SkPlot, SkeletonGap, SkeletonTable,
 } from '@/components/Skeleton';
 
 /**
- * By App skeleton.
- *   page head 64 / 73 -> 68
- *   Top 10   566 / 566 -> 566 (content 439)
- *   Apps     title 79 / 55 -> 67; header 44; rows 53 at both widths
+ * By App skeleton, shape-accurate since 2026-09-30 (components/Skeleton.tsx):
+ * the real headings, and the Top 10 plot at its real height -- ten rows of
+ * 44px, fixed in `TopAppsChart`.
  *
- * Re-measured 2026-09-22 with the sidebar expanded.
- *
- * The table is a deliberate departure. The real card measures ~3,300px,
- * because it lists every app ever seen. Reproducing that height would mean a
- * page-long shimmer to prevent shift that happens entirely below the fold,
- * where nothing is visible to shift. Eleven rows covers the first viewport at
- * both widths, which is the part that can actually jump.
+ * The table is a deliberate departure. The real card lists every app with a
+ * detail page -- dozens of rows, thousands of pixels -- and matching that would
+ * be a page-long shimmer standing in for rows that are all below the fold.
+ * Eleven rows covers the first viewport at both widths, which is the part
+ * that can actually jump; rows and header are the measured 53 / 44px.
  */
 export default function Loading() {
   return (
     <>
-      <SkeletonPageHead />
-      <SkeletonCard contentHeight={439} />
+      <SkPageHead title="By App" sub="16 apps · 681 GB attributed · 896 MB unattributed (0.1%)" />
+      <SkCard title="Top 10" sub="Largest consumers. Each bar is download, then upload in a tint of the same colour.">
+        <SkPlot height={440} />
+      </SkCard>
       <SkeletonGap />
-      {/* Two-line sub at 997px, one at 1680px: 79 / 55 -> 67. */}
-      <SkeletonCard contentHeight={0} titleHeight={67}>
+      <SkCard
+        title="Apps"
+        sub="Percentages are of attributed traffic, so they will not quite reach the headline total — the remainder is traffic SRUM could not attribute to a process."
+      >
         <SkeletonTable rows={11} columns={6} />
-      </SkeletonCard>
+      </SkCard>
     </>
   );
 }

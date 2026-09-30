@@ -8,6 +8,7 @@ import {
 } from '@/lib/queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
+import { WindowsNetworkNote } from '@/components/Notes';
 import { CountUp } from '@/components/CountUp';
 import { DailyTrendChart, StackedTimelineChart, HourlyChart } from '@/components/Charts';
 import { ChartLegend } from '@/components/ChartLegend';
@@ -306,16 +307,7 @@ export default async function OverviewPage({
                   ))}
                 </tbody>
               </table>
-              <p className="ssid-note ssid-note--block">
-                {/*
-                  Windows' own page is scoped to one network profile, so an
-                  all-networks total legitimately reads higher. Say so here, where the per-network rows make it
-                  checkable, or the gap reads as a bug.
-                */}
-                Windows&rsquo; own Data usage page shows one network at a time, so its figure
-                matches one row here rather than the total. Names are learned by watching which
-                network the laptop is on; an unnamed one fills in the next time it is seen.
-              </p>
+              <WindowsNetworkNote />
             </div>
           )}
         </div>

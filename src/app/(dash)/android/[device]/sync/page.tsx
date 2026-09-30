@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Pager } from '@/components/Pager';
+import { clampPage } from '@/lib/pager';
 import { androidTitle } from '@/lib/page-title';
 import { notFound } from 'next/navigation';
 import {
@@ -6,6 +8,7 @@ import {
   SYNC_WARN_HOURS, SYNC_CRITICAL_HOURS, RETENTION_DAYS,
 } from '@/lib/android-queries';
 import { Card, CardTitle } from '@/components/Card';
+import { AndroidSyncNotes } from '@/components/Notes';
 import { AndroidEmpty } from '@/components/AndroidEmpty';
 import { formatCount, formatDateTime, formatRelative } from '@/lib/format';
 
@@ -32,10 +35,14 @@ export async function generateMetadata({
   return androidTitle(device, 'Sync Status');
 }
 
+/** Upload history page size, as on the laptop's run history. */
+const PAGE_SIZE = 25;
+
 export default async function AndroidSyncPage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ device: string }>;
+  searchParams: Promise<{ uploads?: string }>;
 }) {
   if (!androidReady()) return <AndroidEmpty />;
 
@@ -43,7 +50,15 @@ export default async function AndroidSyncPage({
   const device = deviceBySlug(slug);
   if (!device) notFound();
 
-  const data = getAndroidSyncStatus(device.deviceId, 25);
+  // Paged like the laptop's run history: the log grows with every upload,
+  // and a page is a URL. A number past the end lands on the last page.
+  const sp = await searchParams;
+  const first = getAndroidSyncStatus(device.deviceId, PAGE_SIZE);
+  const pageCount = Math.max(1, Math.ceil(first.totalRuns / PAGE_SIZE));
+  const page = clampPage(sp.uploads, pageCount);
+  const data = page === 1 ? first : getAndroidSyncStatus(device.deviceId, PAGE_SIZE, (page - 1) * PAGE_SIZE);
+  const firstOnPage = (page - 1) * PAGE_SIZE + 1;
+  const lastOnPage = Math.min(page * PAGE_SIZE, data.totalRuns);
 
   const hours = data.hoursSinceSuccess;
   const late = hours != null && hours > SYNC_WARN_HOURS;
@@ -148,7 +163,7 @@ export default async function AndroidSyncPage({
           aside={
             data.totalRuns > 0 && (
               <span className="callout-sub" style={{ whiteSpace: 'nowrap' }}>
-                {Math.min(25, data.runs.length)} of {data.totalRuns}
+                {firstOnPage}&ndash;{lastOnPage} of {data.totalRuns}
               </span>
             )
           }
@@ -199,6 +214,7 @@ export default async function AndroidSyncPage({
             </tbody>
           </table>
         </div>
+        <Pager page={page} count={pageCount} path={`/android/${device.slug}/sync`} param="uploads" />
       </Card>
 
       <div style={{ height: '1.15rem' }} />
@@ -207,29 +223,7 @@ export default async function AndroidSyncPage({
         <CardTitle sub="Why a late phone is not the same emergency it would be on the Windows side.">
           How this differs from the collector
         </CardTitle>
-        <ul className="prose-list">
-          <li>
-            <strong>Android keeps its own history for about {RETENTION_DAYS} days.</strong> The
-            phone only has to be seen before that window closes, not promptly. The same
-            rule as the Windows collector: collect faster than eviction, not faster than
-            writing.
-          </li>
-          <li>
-            <strong>Nothing on this machine can trigger a sync.</strong> The phone pushes;
-            there is no equivalent of the Sync button, because there is no scheduled task
-            here to start.
-          </li>
-          <li>
-            <strong>Unmetered networks only.</strong> If the phone has been on mobile data
-            for days, it will not have uploaded &mdash; by design. Backfilling over the
-            connection this app exists to measure would be a self-inflicted wound.
-          </li>
-          <li>
-            <strong>Usage access can be revoked silently.</strong> If Android reboots into a
-            state where it is off, uploads keep succeeding but carry only the reporter&rsquo;s
-            own traffic. The app&rsquo;s own screen is the place that says so.
-          </li>
-        </ul>
+        <AndroidSyncNotes />
       </Card>
     </>
   );

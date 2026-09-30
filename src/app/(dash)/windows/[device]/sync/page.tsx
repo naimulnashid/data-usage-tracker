@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
+import { Pager } from '@/components/Pager';
 import { windowsTitle } from '@/lib/page-title';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSync, windowsDeviceBySlug, databaseExists } from '@/lib/queries';
 import { Card, CardTitle } from '@/components/Card';
@@ -185,30 +185,7 @@ export default async function SyncPage({
           </table>
         </div>
 
-        {pageCount > 1 && (
-          <div className="pager">
-            <Link
-              href={safePage > 1 ? `${base}/sync?runs=${safePage - 1}` : `${base}/sync`}
-              className="chip"
-              aria-disabled={safePage === 1}
-              data-disabled={safePage === 1}
-              // CSS stops the mouse (pointer-events: none); this stops Tab and Enter.
-              tabIndex={safePage === 1 ? -1 : undefined}
-            >
-              &larr; Newer
-            </Link>
-            <span className="pager-page">Page {safePage} of {pageCount}</span>
-            <Link
-              href={`${base}/sync?runs=${Math.min(pageCount, safePage + 1)}`}
-              className="chip"
-              aria-disabled={safePage === pageCount}
-              data-disabled={safePage === pageCount}
-              tabIndex={safePage === pageCount ? -1 : undefined}
-            >
-              Older &rarr;
-            </Link>
-          </div>
-        )}
+        <Pager page={safePage} count={pageCount} path={`${base}/sync`} param="runs" />
 
         {runs.some((r) => r.error) && (
           <div style={{ marginTop: '1.4rem' }}>

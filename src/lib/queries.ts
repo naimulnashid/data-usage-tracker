@@ -21,6 +21,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { configPath } from './config-path';
 import { resolveApp, type ResolvedApp } from './app-name';
 import { readRenames, WINDOWS_RENAMES } from './app-renames';
+import { readColorOverrides } from './app-color-overrides';
 import { deviceSlug } from './nav';
 import { assignColors, type AppColorMap } from './app-colors';
 import { toLocalBuckets, type AppKind } from './srum';
@@ -1081,19 +1082,32 @@ export function getAppColorMap(): AppColorMap {
     // name. See lib/app-renames.ts.
     const totals = new Map<string, number>();
     const renamed = new Map<string, string>();
+    const shownAs = new Map<string, string>(); // groupKey -> display name
     const resolve = appResolver(db);
     for (const r of rows) {
-      const { displayName, baseName } = resolve(r.i, r.k as AppKind);
+      const { displayName, baseName, groupKey } = resolve(r.i, r.k as AppKind);
       totals.set(baseName, (totals.get(baseName) ?? 0) + Number(r.b));
       if (displayName !== baseName) renamed.set(displayName, baseName);
+      shownAs.set(groupKey, displayName);
     }
 
     const map = assignColors(
       [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name),
     );
     for (const [name, base] of renamed) if (map[base]) map[name] = map[base]!;
+    // The user's own colours win over brand and palette alike, under whatever
+    // name the app shows. See lib/app-color-overrides.ts.
+    for (const [key, color] of readColorOverrides(db, WINDOWS_RENAMES)) {
+      const name = shownAs.get(key);
+      if (name) map[name] = color;
+    }
     return map;
   });
+}
+
+/** Family groupKey -> the colour the user chose for it. */
+export function getAppColorOverrides(): Map<string, string> {
+  return withDb((db) => readColorOverrides(db, WINDOWS_RENAMES));
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import { CountUp } from './CountUp';
 import { formatBytes, formatPercent, splitBytes } from '@/lib/format';
-import { colorOf, EVERYTHING_ELSE_COLOR, type AppColorMap } from '@/lib/app-colors';
+import { colorOf, ink, inkText, textColorOf, EVERYTHING_ELSE_COLOR, type AppColorMap } from '@/lib/app-colors';
 import type { AppIconMap } from '@/lib/app-icons';
 import { AppIcon } from './AppIcon';
 
@@ -25,6 +25,7 @@ export function SplitBar({
 }) {
   const focusColor = colorOf(colors, app);
   const otherPct = 100 - focusPct;
+  const restColor = ink(EVERYTHING_ELSE_COLOR);
 
   return (
     <div>
@@ -39,7 +40,7 @@ export function SplitBar({
         />
         <div
           style={{
-            width: `${otherPct}%`, background: EVERYTHING_ELSE_COLOR,
+            width: `${otherPct}%`, background: restColor,
             transformOrigin: 'left', animation: 'grow 800ms var(--ease) 120ms both',
           }}
           title={`Everything else — ${formatBytes(other)}`}
@@ -47,17 +48,19 @@ export function SplitBar({
       </div>
 
       <div className="grid grid--2" style={{ marginTop: '1.6rem' }}>
-        <Half label={app} bytes={focus} pct={focusPct} color={focusColor} icons={icons} />
-        <Half label="Everything else" bytes={other} pct={otherPct} color={EVERYTHING_ELSE_COLOR} />
+        <Half label={app} bytes={focus} pct={focusPct} color={focusColor} text={textColorOf(colors, app)} icons={icons} />
+        <Half label="Everything else" bytes={other} pct={otherPct} color={restColor} text={inkText(EVERYTHING_ELSE_COLOR)} />
       </div>
     </div>
   );
 }
 
 function Half({
-  label, bytes, pct, color, icons,
+  label, bytes, pct, color, text, icons,
 }: {
   label: string; bytes: number; pct: number; color: string;
+  /** The same colour, in the band that reads as text on the current theme. */
+  text: string;
   /** "Everything else" is not an app, so only the named half gets a logo. */
   icons?: AppIconMap;
 }) {
@@ -70,7 +73,7 @@ function Half({
           : <span className="legend-swatch" style={{ background: color }} />}
         {label}
       </div>
-      <div className="stat-value" style={{ color, marginTop: '0.3rem' }}>
+      <div className="stat-value" style={{ color: text, marginTop: '0.3rem' }}>
         <CountUp value={bytes} mode="bytesValue" />
         <span className="stat-unit">{unit}</span>
       </div>

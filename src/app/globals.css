@@ -73,6 +73,115 @@
      padding and nothing else. */
   --side-w: 232px;
   --side-w-collapsed: 62px;
+
+  /* ---- Surfaces and shadows that differ by theme. The dark values are the
+     dashboard's original look; the light theme below redefines every one. */
+  color-scheme: dark;
+  --topbar-bg: rgba(0, 0, 0, 0.82);
+  /* Black-on-black shadows vanish, so dark cards lift with an inset top
+     highlight; the drop shadow only deepens the edge. */
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 12px 28px rgba(0, 0, 0, 0.55);
+  --shadow-card-hover: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 36px rgba(0, 0, 0, 0.6);
+  --shadow-pop: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.75);
+  --shadow-control-hover: none;
+  --tooltip-bg: #0c0c0e;
+  --tooltip-border: #2c2c33;
+  --tooltip-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+  --chart-grid: #1a1a1e;
+  --chart-cursor: rgba(255, 255, 255, 0.04);
+  /* Download / upload: two shades of the device accent (Charts.tsx). */
+  --down-keep: 78%;
+  --down-mix: #000;
+  --up-keep: 72%;
+  --up-mix: #fff;
+  /* The second shade on the network split bars (.net-*), as a fill and as
+     text. They differ on the light theme, where a pale fill is fine but pale
+     text is not. */
+  --second-keep: 40%;
+  --second-mix: #fff;
+  --second-ink-keep: 40%;
+  --second-ink-mix: #fff;
+  /* Light plate behind near-black logos (.app-icon--plate). */
+  --plate-bg: #ececf1;
+  --input-border: #5c5c6a;
+  /* Lightness band every app colour is painted within (ink() in
+     app-colors.ts, OKLCH L). Dark: nothing darker than 0.45, so a user's
+     black stays visible on black. */
+  --ink-lo: 0.45;
+  --ink-hi: 1;
+  /* The same for text written in an app's colour: brighter floor on black. */
+  --ink-text-lo: 0.62;
+  --ink-text-hi: 1;
+  /* Outline on colour swatches, so a pale one still has an edge. */
+  --swatch-ring: transparent;
+}
+
+/*
+  THE LIGHT THEME.
+
+  Not the dark theme inverted. What makes a light dashboard read, and what
+  this follows:
+
+  - A pale grey CANVAS with white cards on it, not white on white. The
+    separation between sections comes from that step plus a real border and a
+    soft, layered shadow -- which, unlike on black, is visible here, so it
+    does the lifting the inset highlight does in the dark theme.
+  - Hover is ELEVATION: a card, a chip or a menu rises by casting a larger,
+    softer shadow, the way Material and Fluent both do it.
+  - Text is near-black, not black, and the greys are measured: --text-dim
+    7.7:1 and --text-faint 5.3:1 on white, 4.8:1 on the canvas.
+  - The accents are deepened per device until they read as text on white
+    (lib/accent.ts), and the heat map runs light-to-dark.
+  - App colours are clamped darker (--ink-hi) so near-white brand colours
+    -- Ollama, Cursor, X -- do not vanish into the card.
+*/
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f4f5f7;
+  --bg-panel: #ffffff;
+  --bg-panel-hover: #f5f7fa;
+  --bg-inset: #eef0f3;
+
+  --border: #e3e5ea;
+  --border-strong: #cfd2d9;
+
+  --text: #16171a;
+  --text-dim: #52525b;
+  --text-faint: #6b6b76;
+
+  --danger: #b42318;
+  --danger-dim: rgba(217, 45, 32, 0.1);
+  --success: #15803d;
+  --success-dim: rgba(21, 128, 61, 0.1);
+
+  --hm-none: #fbfbfc;
+
+  --topbar-bg: rgba(255, 255, 255, 0.86);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.07);
+  --shadow-card-hover: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 12px 24px -4px rgba(16, 24, 40, 0.12);
+  --shadow-pop: 0 4px 6px -2px rgba(16, 24, 40, 0.06), 0 16px 32px -4px rgba(16, 24, 40, 0.16);
+  --shadow-control-hover: 0 2px 6px rgba(16, 24, 40, 0.1);
+  --tooltip-bg: #ffffff;
+  --tooltip-border: #e3e5ea;
+  --tooltip-shadow: 0 4px 6px -2px rgba(16, 24, 40, 0.06), 0 12px 24px -4px rgba(16, 24, 40, 0.16);
+  --chart-grid: #eceef2;
+  --chart-cursor: rgba(16, 24, 40, 0.05);
+  --down-keep: 100%;
+  --down-mix: #000;
+  --up-keep: 45%;
+  --up-mix: #fff;
+  --second-keep: 45%;
+  --second-mix: #fff;
+  --second-ink-keep: 62%;
+  --second-ink-mix: #000;
+  --plate-bg: transparent;
+  --input-border: #8a8a96;
+  --ink-lo: 0;
+  --ink-hi: 0.78;
+  --ink-text-lo: 0;
+  --ink-text-hi: 0.55;
+  --swatch-ring: rgba(16, 24, 40, 0.14);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -167,7 +276,7 @@ a:hover { color: var(--accent-bright); }
      is a gutter, not a bar. */
   gap: 0.55rem 1.5rem;
   padding: 0.9rem clamp(1rem, 3vw, 2.5rem);
-  background: rgba(0, 0, 0, 0.82);
+  background: var(--topbar-bg);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
   /* The bar can be empty on a device with no controls of its own, and an empty
@@ -308,15 +417,16 @@ a:hover { color: var(--accent-bright); }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.6rem;
-  /* Inset highlight does the lifting a shadow cannot on pure black. */
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 12px 28px rgba(0, 0, 0, 0.55);
+  /* Inset highlight does the lifting a shadow cannot on pure black; on the
+     light theme the same token is a real, soft drop shadow. */
+  box-shadow: var(--shadow-card);
   transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
               box-shadow var(--dur) var(--ease);
 }
 .card--hover:hover {
   border-color: var(--border-strong);
   transform: translateY(-2px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 36px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .grid { display: grid; gap: 1.15rem; }
@@ -392,7 +502,10 @@ tbody tr:hover { background: var(--bg-panel-hover); }
   font-family: inherit; cursor: pointer;
   transition: all var(--dur) var(--ease);
 }
-.chip:hover { color: var(--text); border-color: var(--text-faint); transform: translateY(-1px); }
+.chip:hover {
+  color: var(--text); border-color: var(--text-faint); transform: translateY(-1px);
+  box-shadow: var(--shadow-control-hover);
+}
 /* --accent-fill / --on-accent-fill, not --accent with white: white on the
    blue accent was 3.87:1 and on the green one 1.78:1. See accent.ts. */
 .chip[data-active='true'] {
@@ -410,10 +523,9 @@ select.chip {
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
   padding-right: 1.9rem !important;
-  color-scheme: dark;
   max-width: 15rem;
 }
-select.chip option { background: #0c0c0e; color: var(--text); }
+select.chip option { background: var(--tooltip-bg); color: var(--text); }
 
 .bar-track { height: 6px; border-radius: 3px; background: var(--bg-inset); overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 3px; transform-origin: left; animation: grow 700ms var(--ease) both; }
@@ -436,7 +548,7 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   gap: 0.5rem 1.1rem; margin-top: 1rem;
 }
 .legend-item { display: flex; align-items: center; gap: 0.45rem; font-size: var(--fs-small); color: var(--text-dim); }
-.legend-swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.legend-swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; box-shadow: inset 0 0 0 1px var(--swatch-ring); }
 
 /* ------------------------------------------------------------- app icons */
 
@@ -460,13 +572,19 @@ select.chip option { background: #0c0c0e; color: var(--text); }
    must NOT be applied to every logo, because as many again are
    white-on-transparent and the plate would erase those instead. */
 .app-icon--plate {
-  background: #ececf1;
+  background: var(--plate-bg);
   padding: 1.5px;
 }
+/* No plate on the light theme: the marks it rescues are dark, and dark reads
+   on white. Nothing needs the opposite -- every logo in apps_logo/, all four
+   devices, was rendered on white on 2026-09-30 and all 147 read, the
+   near-white-looking ones included (Ollama's file is a dark outline on a
+   white fill). */
+:root[data-theme='light'] .app-icon--plate { padding: 0; }
 
 /* The colour swatch fallback. Slightly smaller and rounder than the logo box so
    it reads as a marker rather than a missing image. */
-.app-icon--swatch { border-radius: 3px; transform: scale(0.62); }
+.app-icon--swatch { border-radius: 3px; transform: scale(0.62); box-shadow: inset 0 0 0 1px var(--swatch-ring); }
 
 /* ---------------------------------------------------------------- motion */
 
@@ -653,7 +771,7 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 50px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--shadow-pop);
   animation: fadeUp 420ms var(--ease) both;
 }
 
@@ -680,7 +798,7 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   background: var(--bg-inset);
   /* Not --border-strong: at 1.44:1 the field's edge was all but invisible,
      and WCAG 1.4.11 wants 3:1 for the boundary that identifies a control. */
-  border: 1px solid #5c5c6a;
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-sm);
   color: var(--text);
   font: inherit;
@@ -822,7 +940,7 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.75);
+  box-shadow: var(--shadow-pop);
 
   font-size: var(--fs-small);
   color: var(--text);
@@ -1080,7 +1198,7 @@ select.chip option { background: #0c0c0e; color: var(--text); }
 .rename-input {
   flex: 1 1 10rem; min-width: 0; max-width: 26rem;
   font: inherit; font-size: var(--fs-small); color: var(--text);
-  background: var(--bg-inset); border: 1px solid var(--border-strong);
+  background: var(--bg-inset); border: 1px solid var(--input-border);
   border-radius: 8px; padding: 0.35rem 0.6rem;
 }
 .rename-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
@@ -1127,7 +1245,8 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.45rem;
   margin-top: 1.3rem;
   padding-top: 1.2rem;
   border-top: 1px solid var(--border);
@@ -1139,8 +1258,29 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   white-space: nowrap;
 }
 
-/* Ends of the range stay visible but inert, so the control does not jump
-   around as you page through. */
+/* The numbers sit between the step buttons with a little more air either
+   side, so they read as their own group. */
+.pager-pages { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0 0.35rem; }
+.pager-number { min-width: 2.4rem; text-align: center; padding-inline: 0.55rem; }
+.pager-gap { color: var(--text-faint); padding: 0 0.15rem; }
+
+/* Straight to any page: the number box, not a walk through the ones between. */
+.pager-jump {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  margin-left: 0.6rem;
+  font-size: var(--fs-small); color: var(--text-dim);
+}
+.pager-jump label { white-space: nowrap; }
+.pager-input {
+  width: 4.2rem;
+  font: inherit; font-size: var(--fs-small); color: var(--text);
+  background: var(--bg-inset); border: 1px solid var(--input-border);
+  border-radius: 8px; padding: 0.3rem 0.5rem;
+  text-align: center;
+}
+.pager-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.pager-of { white-space: nowrap; }
+
 .pager .chip[data-disabled='true'] {
   opacity: 0.35;
   pointer-events: none;
@@ -1182,21 +1322,21 @@ select.chip option { background: #0c0c0e; color: var(--text); }
 .net-bar-fill { transform-origin: left; animation: grow 800ms var(--ease) both; }
 .net-bar-fill--wifi { background: var(--accent); }
 .net-bar-fill--mobile {
-  background: color-mix(in srgb, var(--accent) 40%, #fff);
+  background: color-mix(in srgb, var(--accent) var(--second-keep), var(--second-mix));
   animation-delay: 120ms;
 }
 .net-swatch--wifi { background: var(--accent); }
-.net-swatch--mobile { background: color-mix(in srgb, var(--accent) 40%, #fff); }
+.net-swatch--mobile { background: color-mix(in srgb, var(--accent) var(--second-keep), var(--second-mix)); }
 .net-value--wifi { color: var(--accent-bright); margin-top: 0.3rem; }
-.net-value--mobile { color: color-mix(in srgb, var(--accent) 40%, #fff); margin-top: 0.3rem; }
+.net-value--mobile { color: color-mix(in srgb, var(--accent) var(--second-ink-keep), var(--second-ink-mix)); margin-top: 0.3rem; }
 
 /* The laptop's card splits by link rather than by Wi-Fi vs mobile: wired takes
    the second shade, and a mobile-broadband modem or anything else a neutral
    third, so the accent pair still reads as the main comparison. */
 .net-bar-fill--wired,
-.net-swatch--wired { background: color-mix(in srgb, var(--accent) 40%, #fff); }
+.net-swatch--wired { background: color-mix(in srgb, var(--accent) var(--second-keep), var(--second-mix)); }
 .net-bar-fill--wired { animation-delay: 120ms; }
-.net-value--wired { color: color-mix(in srgb, var(--accent) 40%, #fff); margin-top: 0.3rem; }
+.net-value--wired { color: color-mix(in srgb, var(--accent) var(--second-ink-keep), var(--second-ink-mix)); margin-top: 0.3rem; }
 .net-bar-fill--other,
 .net-swatch--other { background: var(--text-faint); }
 .net-value--other { color: var(--text-dim); margin-top: 0.3rem; }
@@ -1235,3 +1375,103 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   font-size: var(--fs-small);
 }
 .ssid-name--dim { color: var(--text-faint); font-style: italic; }
+
+/* ------------------------------------------------------------ theme menu */
+
+.theme-menu { position: relative; }
+
+/* The icon follows the APPLIED theme, which is on <html> before first paint,
+   so it is right immediately -- the menu's own state loads a moment later. */
+.theme-icon--sun { display: none; }
+:root[data-theme='light'] .theme-icon--sun { display: block; }
+:root[data-theme='light'] .theme-icon--moon { display: none; }
+
+.theme-popover {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  min-width: 9.5rem;
+  display: flex; flex-direction: column;
+  padding: 0.3rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop);
+  animation: fadeUp 160ms var(--ease) both;
+}
+.theme-option {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 0; border-radius: 7px;
+  background: none; color: var(--text-dim);
+  font: inherit; font-size: var(--fs-small); text-align: left;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.theme-option:hover, .theme-option:focus-visible { background: var(--bg-panel-hover); color: var(--text); }
+.theme-option[aria-checked='true'] { color: var(--accent-bright); font-weight: 600; }
+.theme-check { width: 1em; text-align: center; }
+
+/* --------------------------------------------------------- colour editor */
+
+.color-field { display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
+.color-swatch-input {
+  width: 34px; height: 30px; padding: 2px;
+  border: 1px solid var(--input-border); border-radius: 8px;
+  background: var(--bg-inset);
+  cursor: pointer;
+}
+.color-swatch-input::-webkit-color-swatch-wrapper { padding: 0; }
+.color-swatch-input::-webkit-color-swatch { border: 0; border-radius: 5px; }
+.rename-input.color-hex-input {
+  flex: 0 0 6.6rem; width: 6.6rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+.app-title .rename-input.color-hex-input { font-size: 0.95rem; font-weight: 500; }
+.rename-input[aria-invalid='true'] { border-color: var(--danger); }
+
+/* ------------------------------------------------------ chart affordances */
+
+/* A Top 10 bar that opens its app's detail page. */
+.bar-link { cursor: pointer; transition: opacity var(--dur) var(--ease); }
+.bar-link:hover { opacity: 0.82; }
+
+.tooltip-hint { margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-faint); }
+
+/* ----------------------------------------------- light-theme refinements */
+
+/* A glow reads as light on black and as a smudge on white. On the light
+   theme, solid controls lift with a tinted shadow instead. */
+:root[data-theme='light'] .chip[data-active='true'] {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.1), 0 2px 8px var(--accent-glow);
+}
+:root[data-theme='light'] .login-button:hover:not(:disabled) {
+  box-shadow: 0 2px 4px rgba(16, 24, 40, 0.1), 0 6px 16px var(--accent-glow);
+}
+/* The rails get the same separation the cards do. */
+:root[data-theme='light'] .sidebar { box-shadow: 1px 0 0 var(--border), 4px 0 16px -8px rgba(16, 24, 40, 0.08); }
+:root[data-theme='light'] .topbar { box-shadow: 0 1px 0 var(--border); }
+/* Rows lift a touch on hover rather than only changing shade. */
+:root[data-theme='light'] .side-device:hover,
+:root[data-theme='light'] .nav-link:hover { box-shadow: var(--shadow-control-hover); }
+
+/* Shape-accurate skeletons (components/Skeleton.tsx): the page's own text,
+   laid out and wrapped exactly as on the page, painted as one shimmer bar per
+   line. */
+.sk-text {
+  color: transparent !important;
+  border-radius: 6px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.sk-text * { color: transparent !important; }
+/* A paragraph or list kept for its height, shown as one block. */
+.sk-mask { position: relative; }
+.sk-mask * { color: transparent !important; }
+.sk-mask::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--bg-inset) 25%, var(--bg-panel-hover) 50%, var(--bg-inset) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}

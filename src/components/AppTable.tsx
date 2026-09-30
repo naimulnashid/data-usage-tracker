@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { AppRow } from '@/lib/queries';
-import { colorOf, type AppColorMap } from '@/lib/app-colors';
+import { colorOf, rawColorOf, type AppColorMap } from '@/lib/app-colors';
 import type { AppIconMap } from '@/lib/app-icons';
 import { AppIcon } from './AppIcon';
 import { RenameApp } from './RenameApp';
@@ -20,10 +20,12 @@ const COLUMNS: { key: SortKey; label: string; numeric: boolean }[] = [
 ];
 
 export function AppTable({
-  apps, colors, icons, search = '', base, device,
+  apps, colors, custom = [], icons, search = '', base, device,
 }: {
   apps: AppRow[];
   colors: AppColorMap;
+  /** Family keys whose colour is the user's own. */
+  custom?: string[];
   icons: AppIconMap;
   /** Current ?days, carried into detail links so the range survives. */
   search?: string;
@@ -127,6 +129,7 @@ export function AppTable({
                   <RenameApp
                     variant="row" platform="windows" device={device}
                     appKey={a.key} name={a.name} baseName={a.baseName}
+                    color={rawColorOf(colors, a.name)} customColor={custom.includes(a.key)}
                   >
                     {a.detailed ? (
                       <Link

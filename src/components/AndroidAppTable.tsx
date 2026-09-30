@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { AndroidApp } from '@/lib/android-queries';
 import type { AppIconMap } from '@/lib/app-icons';
-import { colorOf, type AppColorMap } from '@/lib/app-colors';
+import { colorOf, rawColorOf, type AppColorMap } from '@/lib/app-colors';
 import { AppIcon } from './AppIcon';
 import { RenameApp } from './RenameApp';
 import { formatBytes, formatPercent } from '@/lib/format';
@@ -36,11 +36,13 @@ function earnsDetail(total: number, days: number): boolean {
  * it, and that it belongs to a cloned profile.
  */
 export function AndroidAppTable({
-  apps, icons, colors, search = '', base, device,
+  apps, icons, colors, custom = [], search = '', base, device,
 }: {
   apps: AndroidApp[];
   icons: AppIconMap;
   colors: AppColorMap;
+  /** uids (as text) whose colour is the user's own. */
+  custom?: string[];
   /** Current ?days, carried into detail links so the range survives. */
   search?: string;
   /** `/android/<slug>`. Passed in because a device slug cannot be derived here. */
@@ -80,6 +82,7 @@ export function AndroidAppTable({
                   <RenameApp
                     variant="row" platform="android" device={device}
                     appKey={String(a.uid)} name={a.name} baseName={a.baseName}
+                    color={rawColorOf(colors, a.name)} customColor={custom.includes(String(a.uid))}
                   >
                     {earnsDetail(a.total, a.days) ? (
                       <Link

@@ -188,11 +188,74 @@ export function assignColors(namesByRank: string[]): AppColorMap {
   return map;
 }
 
-/** Look up with a sane fallback for a name missing from the map. */
-export function colorOf(map: AppColorMap, name: string): string {
+/**
+ * The app's colour as stored: a #rrggbb, with a sane fallback for a name
+ * missing from the map. What the colour editor shows and what `uploadTint`
+ * works from. Never paint this directly -- paint `colorOf`.
+ */
+export function rawColorOf(map: AppColorMap, name: string): string {
   if (name === 'Other') return OTHER_COLOR;
   if (name === 'Unattributed') return UNATTRIBUTED_COLOR;
   return map[name] ?? BRAND[name] ?? OTHER_COLOR;
+}
+
+/** The colour to PAINT an app in, legible on the current theme. See `ink`. */
+export function colorOf(map: AppColorMap, name: string): string {
+  return ink(rawColorOf(map, name));
+}
+
+/** The upload half of an app's stacked bar, ready to paint. */
+export function uploadOf(map: AppColorMap, name: string): string {
+  return ink(uploadTint(rawColorOf(map, name)));
+}
+
+/**
+ * A colour as painted on the current theme: its OKLCH lightness clamped to the
+ * band `--ink-lo`..`--ink-hi` that the theme defines, hue and chroma kept.
+ *
+ * Brand colours were chosen against true black, and seven are near-white --
+ * Ollama, Cursor, OpenCode, X, Threads, OBS, GitHub. On the light theme they
+ * would be white bars on a white card. A user-picked colour can fail the same
+ * way in the other direction: black on the dark theme. Clamping lightness
+ * keeps the colour recognisably itself while guaranteeing it separates from
+ * the page, and it happens in CSS, so a theme switch repaints it with no
+ * server round trip. Both themes' bands are in globals.css.
+ *
+ * Relative colour syntax is valid anywhere a colour is: style attributes and
+ * the SVG presentation attributes Recharts writes, where `var()` already works.
+ */
+export function ink(color: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  return `oklch(from ${color} clamp(var(--ink-lo, 0), l, var(--ink-hi, 1)) c h)`;
+}
+
+/**
+ * `ink` for TEXT in an app's colour. A fill needs only to separate from the
+ * card; a number written in the colour must be readable, which on white takes
+ * a far darker band (`--ink-text-*`, globals.css). Measured on the split card:
+ * "Everything else" at the fill band's L 0.78 was 2.4:1 on white.
+ */
+export function inkText(color: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  return `oklch(from ${color} clamp(var(--ink-text-lo, 0), l, var(--ink-text-hi, 1)) c h)`;
+}
+
+/** The colour to write TEXT in for an app. See `inkText`. */
+export function textColorOf(map: AppColorMap, name: string): string {
+  return inkText(rawColorOf(map, name));
+}
+
+/**
+ * Tidy a submitted colour: `#rgb` or `#rrggbb`, any case, with or without the
+ * `#`. Returns lowercase `#rrggbb`, or null for anything else -- the result is
+ * written into style attributes, so nothing but a plain hex may pass.
+ */
+export function cleanColor(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(raw.trim());
+  if (!m) return null;
+  const hex = m[1]!.toLowerCase();
+  return `#${hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex}`;
 }
 
 /* --------------------------------------------------------------- upload tint */

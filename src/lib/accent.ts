@@ -61,6 +61,7 @@ function alpha(hex: string, a: number): string {
 const TECH_BLUE = '#2f80ed';
 const ANDROID_GREEN = '#3ddc84';
 
+/** The dark theme's accents -- the dashboard's original, true-black look. */
 export const ACCENTS: Record<DeviceId, AccentTheme> = {
   windows: {
     accent: TECH_BLUE,
@@ -81,6 +82,44 @@ export const ACCENTS: Record<DeviceId, AccentTheme> = {
     accentFill: ANDROID_GREEN,
     onAccentFill: '#06140c',  // on the green: 10.57:1
     heatmap: ['#131519', '#0d3a24', '#125234', '#1a7b4c', '#3ddc84', '#8af0b8'],
+  },
+};
+
+/**
+ * The light theme's accents. Same hue per device, deepened until it reads as
+ * TEXT on white: the dark theme's Tech Blue is 3.87:1 on white and Android
+ * Green 1.78:1, and both are used for links, the headline figure and active
+ * tabs. Measured 2026-09-30 against white, the #f4f5f7 page and the
+ * accent-dim tint behind active chips:
+ *
+ *   #1664d9  5.44 / 4.99 / 4.93     #0f5bc4 (bright)  6.34 / 5.81
+ *   #0d7340  5.93 / 5.43 / 5.36     #0b6b3a (bright)  6.61 / 6.06
+ *
+ * "Bright" is the hover and emphasis step, so on white it goes DARKER, not
+ * lighter. White on either fill clears 5.4:1.
+ *
+ * The heat map runs light to dark here -- more traffic, more ink -- which is
+ * the convention on a light page, and step 0 is a pale neutral so a quiet day
+ * still reads as a day.
+ */
+export const LIGHT_ACCENTS: Record<DeviceId, AccentTheme> = {
+  windows: {
+    accent: '#1664d9',
+    accentBright: '#0f5bc4',
+    accentDim: alpha('#1664d9', 0.1),
+    accentGlow: alpha('#1664d9', 0.24),
+    accentFill: '#1664d9',
+    onAccentFill: '#ffffff',
+    heatmap: ['#e9edf3', '#c7dcf8', '#94bdf2', '#5b99e8', '#2a74dc', '#1252b0'],
+  },
+  android: {
+    accent: '#0d7340',
+    accentBright: '#0b6b3a',
+    accentDim: alpha('#0d7340', 0.1),
+    accentGlow: alpha('#0d7340', 0.24),
+    accentFill: '#0d7340',
+    onAccentFill: '#ffffff',
+    heatmap: ['#e9edf3', '#c3ead3', '#8dd6ad', '#4dba80', '#1f9457', '#0d6b3c'],
   },
 };
 
@@ -119,5 +158,10 @@ export function accentStyleSheet(): string {
   return [
     block(':root', ACCENTS.windows),
     ...Object.entries(ACCENTS).map(([id, t]) => block(`[data-device='${id}']`, t)),
+    // The light theme is `data-theme` on <html>, set before first paint by
+    // the script in the root layout. One more attribute in each selector
+    // outranks the dark blocks above without !important.
+    block(":root[data-theme='light']", LIGHT_ACCENTS.windows),
+    ...Object.entries(LIGHT_ACCENTS).map(([id, t]) => block(`[data-theme='light'] [data-device='${id}']`, t)),
   ].join('');
 }

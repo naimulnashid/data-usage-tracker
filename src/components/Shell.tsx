@@ -8,6 +8,7 @@ import { Nav } from './Nav';
 import { ScopeBar } from './ScopeBar';
 import { SyncButton } from './SyncButton';
 import { SignOutButton } from './SignOutButton';
+import { ThemeToggle } from './ThemeToggle';
 import { Footer } from './Footer';
 
 /**
@@ -59,6 +60,7 @@ export function Shell({
             <Suspense fallback={null}>
               <ScopeBar />
             </Suspense>
+            <ThemeToggle />
             <SignOutButton />
           </div>
         </header>

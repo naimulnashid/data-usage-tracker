@@ -6,7 +6,7 @@
  * write-ups; the short version is in the comments below.
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const SCHEMA_SQL = /* sql */ `
 PRAGMA journal_mode = WAL;
@@ -163,6 +163,18 @@ CREATE TABLE IF NOT EXISTS app_renames (
   device     TEXT NOT NULL,
   app_key    TEXT NOT NULL,
   name       TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (device, app_key)
+);
+
+-- Chart colours chosen in the dashboard (schema 6, 2026-09-30). Keyed exactly
+-- like app_renames, and for the same reason kept here rather than in config.
+-- Holds only the user's overrides, as lowercase #rrggbb; everything else is
+-- still assigned in code (lib/app-colors.ts). See lib/app-color-overrides.ts.
+CREATE TABLE IF NOT EXISTS app_colors (
+  device     TEXT NOT NULL,
+  app_key    TEXT NOT NULL,
+  color      TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (device, app_key)
 );

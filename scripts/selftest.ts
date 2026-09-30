@@ -32,6 +32,8 @@ import {
   recentBlock, expandedBlocks, blockLabel,
 } from '../src/lib/heatmap.js';
 import { safeNextPath } from '../src/lib/safe-redirect.js';
+import { cleanColor, ink, uploadOf, colorOf } from '../src/lib/app-colors.js';
+import { pageItems, clampPage } from '../src/lib/pager.js';
 import { byNamingOrder } from '../src/lib/android-names.js';
 import { isSameOrigin } from '../src/lib/same-origin.js';
 import { parseDays, ALL_DAYS, DEFAULT_DAYS } from '../src/lib/scope.js';
@@ -686,6 +688,33 @@ async function securityChecks(): Promise<void> {
   rejects({ ...androidPayload(), model: 42 }, 'a non-string model');
   rejects({ ...androidPayload(), utcOffsetMinutes: 90.5 }, 'a fractional utc offset');
   rejects([], 'an array body');
+
+  // App colour overrides (lib/app-color-overrides.ts). What passes is written
+  // into style attributes, so nothing but a plain hex may get through.
+  check('a colour accepts #rrggbb, lowercased', cleanColor('#2F80ED') === '#2f80ed');
+  check('a colour accepts #rgb, expanded', cleanColor('#abc') === '#aabbcc');
+  check('a colour accepts a bare hex', cleanColor(' 2f80ed ') === '#2f80ed');
+  for (const bad of ['red', '#12345', '#1234567', 'url(x)', '#2f80ed;background:red', '', 42, null]) {
+    check(`a colour rejects ${JSON.stringify(bad)}`, cleanColor(bad) === null);
+  }
+  // Painted colours go through ink(): hex in, a theme-clamped colour out;
+  // anything already a var() or a keyword is left alone.
+  check('ink wraps a hex in the theme band', ink('#dcdcdc').startsWith('oklch(from #dcdcdc clamp(var(--ink-lo'));
+  check('ink leaves a var() alone', ink('var(--x)') === 'var(--x)');
+  check('an override paints through ink', colorOf({ A: '#123456' }, 'A').includes('#123456'));
+  check('upload paints a tint, not the base', !uploadOf({ A: '#123456' }, 'A').includes('#123456'));
+
+  // The pager's page window (components/Pager.tsx).
+  const items = (p: number, c: number) => pageItems(p, c).map((x) => (x === 'gap' ? '…' : x)).join(' ');
+  check('pager: middle page', items(6, 12) === '1 … 4 5 6 7 8 … 12', items(6, 12));
+  check('pager: near the start', items(2, 12) === '1 2 3 4 … 12', items(2, 12));
+  check('pager: near the end', items(12, 12) === '1 … 10 11 12', items(12, 12));
+  check('pager: no gap hides a single page', items(4, 12) === '1 2 3 4 5 6 … 12', items(4, 12));
+  check('pager: few pages, no gaps', items(3, 5) === '1 2 3 4 5', items(3, 5));
+  check('pager: one page', items(1, 1) === '1');
+  check('pager: clamps a page past the end', clampPage('99', 12) === 12);
+  check('pager: junk is page 1', clampPage('abc', 12) === 1 && clampPage(undefined, 12) === 1 && clampPage('-3', 12) === 1);
+  check('pager: floors a fraction', clampPage('4.7', 12) === 4);
 }
 
 main().catch((err) => {

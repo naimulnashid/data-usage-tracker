@@ -4,10 +4,10 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { windowsTitle } from '@/lib/page-title';
 import {
-  getAppDetail, getAppColorMap, getRowCount, appExists, databaseExists,
+  getAppDetail, getAppColorMap, getAppColorOverrides, getRowCount, appExists, databaseExists,
   earnsDetailPage, windowsDeviceBySlug, getWindowsAppNames, type Scope,
 } from '@/lib/queries';
-import { colorOf } from '@/lib/app-colors';
+import { colorOf, rawColorOf } from '@/lib/app-colors';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { AppIcon } from '@/components/AppIcon';
 import { BusiestHour } from '@/components/BusiestHour';
@@ -125,6 +125,7 @@ export default async function AppDetailPage({
         <RenameApp
           variant="title" platform="windows" device={device.slug}
           appKey={app.key} name={app.name} baseName={app.baseName}
+          color={rawColorOf(colors, app.name)} customColor={getAppColorOverrides().has(app.key)}
           icon={<AppIcon name={app.name} color={colorOf(colors, app.name)} icons={icons} size="1.1em" />}
         />
         <p>

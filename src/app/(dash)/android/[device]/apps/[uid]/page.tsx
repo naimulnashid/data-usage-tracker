@@ -4,11 +4,11 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { androidTitle } from '@/lib/page-title';
 import {
-  getAndroidAppDetail, getAndroidAppColorMap, androidAppExists, androidReady,
+  getAndroidAppDetail, getAndroidAppColorMap, getAndroidColorOverrides, androidAppExists, androidReady,
   earnsAndroidDetailPage, deviceBySlug, getSsidForUid, getAndroidAppNames,
 } from '@/lib/android-queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
-import { colorOf } from '@/lib/app-colors';
+import { colorOf, rawColorOf } from '@/lib/app-colors';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
 import { AppIcon } from '@/components/AppIcon';
@@ -112,6 +112,7 @@ export default async function AndroidAppPage({
         <RenameApp
           variant="title" platform="android" device={device.slug}
           appKey={String(app.uid)} name={app.name} baseName={app.baseName}
+          color={rawColorOf(colors, app.name)} customColor={getAndroidColorOverrides(device.deviceId).has(String(app.uid))}
           icon={<AppIcon name={app.name} color={color} icons={icons} size="1.1em" />}
         />
         <p>

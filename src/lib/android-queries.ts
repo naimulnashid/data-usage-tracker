@@ -23,6 +23,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { configPath } from './config-path';
 import { assignColors, type AppColorMap } from './app-colors';
 import { readRenames } from './app-renames';
+import { readColorOverrides } from './app-color-overrides';
 import { byNamingOrder } from './android-names';
 import { deviceSlug } from './nav';
 import {
@@ -582,8 +583,17 @@ export function getAndroidAppColorMap(deviceId: string): AppColorMap {
     const labels = rows.map((r) => labelFor(Number(r.uid), names));
     const map = assignColors(labels.map((l) => l.baseName));
     for (const l of labels) if (l.name !== l.baseName && map[l.baseName]) map[l.name] = map[l.baseName]!;
+    // The user's own colours win, under whatever name the uid shows.
+    for (const [uid, color] of readColorOverrides(db, deviceId)) {
+      map[labelFor(Number(uid), names).name] = color;
+    }
     return map;
   });
+}
+
+/** uid (as text) -> the colour the user chose for it, on one phone. */
+export function getAndroidColorOverrides(deviceId: string): Map<string, string> {
+  return withDb((db) => readColorOverrides(db, deviceId));
 }
 
 /**

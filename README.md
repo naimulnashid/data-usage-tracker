@@ -291,15 +291,19 @@ it over USB when you want it.
 | Page | Shows |
 |---|---|
 | **Overview** | All / 30 days / 7 days / latest day, the daily trend, a six-month heat map, daily usage by app, hour of day, and where it went: Wi-Fi against wired, per network |
-| **By App** | Every app with enough activity for a detail page, expandable to every app seen |
+| **By App** | Every app with enough activity for a detail page, expandable to every app seen; click a Top 10 bar to open that app |
 | **App detail** | One app's daily and hourly usage, networks, and which programs were grouped into it |
-| **Sync Status** | Collector run history, with warnings when it has stopped |
+| **Sync Status** | Collector run history, with warnings when it has stopped; jump to any page, or straight to the newest or oldest |
 | **Phone pages** | The same views for each phone, plus per-network (SSID) traffic |
 
 The date range lives in the URL, so every view is linkable, for example
 `/windows/my-pc/apps?days=90`. **Sync now** in the top bar runs a collection on
-demand. Any app can be renamed with the pencil beside its name; the rename is
-stored in the database and keeps the app's colour and logo.
+demand. Any app can be renamed, or given a colour of your choosing (picked, or
+typed as a hex code), with the pencil beside its name; both are stored in the
+database with the history.
+
+**Light or dark.** The sun/moon menu in the top bar switches between a dark
+theme, a light theme, or following your system. It is remembered per browser.
 
 **Totals will not match Windows' page exactly, and that is expected.** Windows
 scopes its page to one network; the dashboard counts all of them. Compare
