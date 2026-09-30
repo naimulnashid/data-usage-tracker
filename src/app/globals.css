@@ -68,6 +68,8 @@
      as a quiet day. It is neutral rather than accent-derived, so unlike the
      --hm-0..5 ramp it belongs here and not in accent.ts. */
   --hm-none: #0b0b0d;
+  /* Hairline around a no-data cell, so an empty stretch still shows its grid. */
+  --hm-none-ring: var(--border);
 
   /* Sidebar geometry. The collapsed width has to fit a 20px icon plus its
      padding and nothing else. */
@@ -89,6 +91,9 @@
   --tooltip-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
   --chart-grid: #1a1a1e;
   --chart-cursor: rgba(255, 255, 255, 0.04);
+  /* A hovered table row. Its own token rather than --bg-panel-hover, which
+     the skeleton shimmer also uses and which must stay close to --bg-inset. */
+  --row-hover: #101012;
   /* Download / upload: two shades of the device accent (Charts.tsx). */
   --down-keep: 78%;
   --down-mix: #000;
@@ -155,7 +160,11 @@
   --success: #15803d;
   --success-dim: rgba(21, 128, 61, 0.1);
 
-  --hm-none: #fbfbfc;
+  /* #fbfbfc until 2026-10-01: on a white card that and its --border
+     hairline were both invisible, so the empty squares vanished. Now a pale
+     fill with a real ring -- outlined, never filled like a quiet day. */
+  --hm-none: #f6f7f9;
+  --hm-none-ring: #cdd1d8;
 
   --topbar-bg: rgba(255, 255, 255, 0.86);
   --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.07);
@@ -166,7 +175,12 @@
   --tooltip-border: #e3e5ea;
   --tooltip-shadow: 0 4px 6px -2px rgba(16, 24, 40, 0.06), 0 12px 24px -4px rgba(16, 24, 40, 0.16);
   --chart-grid: #eceef2;
-  --chart-cursor: rgba(16, 24, 40, 0.05);
+  /* 0.05 until 2026-10-01, which on a white card was invisible: the band
+     behind a hovered bar did not show. */
+  --chart-cursor: rgba(16, 24, 40, 0.09);
+  /* #f5f7fa on white (1.06:1) did not show; this is the deepest step that
+     keeps --text-faint at 4.6:1 on the hovered row. */
+  --row-hover: #eceff4;
   --down-keep: 100%;
   --down-mix: #000;
   --up-keep: 45%;
@@ -481,7 +495,7 @@ td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); }
 .num { text-align: right; white-space: nowrap; }
 
 tbody tr { transition: background var(--dur) var(--ease); }
-tbody tr:hover { background: var(--bg-panel-hover); }
+tbody tr:hover { background: var(--row-hover); }
 
 /* ---------------------------------------------------------------- bits */
 
@@ -668,7 +682,7 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 /* Days before collection started get a hairline instead of a fill, so an empty
    stretch reads as "not recorded" rather than as a run of zero-usage days. */
 .heatmap-cell[data-nodata='true'] {
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--hm-none-ring);
 }
 
 /* Kept gentle so the growth stays inside `.heatmap-scroll`'s gutter. Raising

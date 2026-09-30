@@ -100,7 +100,8 @@ export const ACCENTS: Record<DeviceId, AccentTheme> = {
  *
  * The heat map runs light to dark here -- more traffic, more ink -- which is
  * the convention on a light page, and step 0 is a pale neutral so a quiet day
- * still reads as a day.
+ * still reads as a day. (#e9edf3 until 2026-10-01, which barely showed on a
+ * white card.)
  */
 export const LIGHT_ACCENTS: Record<DeviceId, AccentTheme> = {
   windows: {
@@ -110,7 +111,7 @@ export const LIGHT_ACCENTS: Record<DeviceId, AccentTheme> = {
     accentGlow: alpha('#1664d9', 0.24),
     accentFill: '#1664d9',
     onAccentFill: '#ffffff',
-    heatmap: ['#e9edf3', '#c7dcf8', '#94bdf2', '#5b99e8', '#2a74dc', '#1252b0'],
+    heatmap: ['#e1e6ed', '#c7dcf8', '#94bdf2', '#5b99e8', '#2a74dc', '#1252b0'],
   },
   android: {
     accent: '#0d7340',
@@ -119,7 +120,7 @@ export const LIGHT_ACCENTS: Record<DeviceId, AccentTheme> = {
     accentGlow: alpha('#0d7340', 0.24),
     accentFill: '#0d7340',
     onAccentFill: '#ffffff',
-    heatmap: ['#e9edf3', '#c3ead3', '#8dd6ad', '#4dba80', '#1f9457', '#0d6b3c'],
+    heatmap: ['#e1e6ed', '#c3ead3', '#8dd6ad', '#4dba80', '#1f9457', '#0d6b3c'],
   },
 };
 
