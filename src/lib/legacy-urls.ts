@@ -14,10 +14,10 @@ import { windowsSlug } from '@/lib/queries';
  *
  * - **These live OUTSIDE the `(dash)` route group**, for the same reason
  *   `/login` does: that group's layout mounts the sidebar and queries the
- *   database for the network-profile list. A page whose entire job is to issue
+ *   database for the phone list. A page whose entire job is to issue
  *   a 307 must not run those queries first.
- * - **The query string is carried across.** `?days=` and `?profile=` are the
- *   scope the reader was looking at, and dropping them would silently reset the
+ * - **The query string is carried across.** `?days=` is the range the reader
+ *   was looking at, and dropping them would silently reset the
  *   range on every followed bookmark -- which reads as the selector being
  *   broken rather than as a redirect having happened.
  */

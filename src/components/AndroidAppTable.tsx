@@ -6,6 +6,7 @@ import type { AndroidApp } from '@/lib/android-queries';
 import type { AppIconMap } from '@/lib/app-icons';
 import { colorOf, type AppColorMap } from '@/lib/app-colors';
 import { AppIcon } from './AppIcon';
+import { RenameApp } from './RenameApp';
 import { formatBytes, formatPercent } from '@/lib/format';
 
 /*
@@ -35,7 +36,7 @@ function earnsDetail(total: number, days: number): boolean {
  * it, and that it belongs to a cloned profile.
  */
 export function AndroidAppTable({
-  apps, icons, colors, search = '', base,
+  apps, icons, colors, search = '', base, device,
 }: {
   apps: AndroidApp[];
   icons: AppIconMap;
@@ -44,6 +45,8 @@ export function AndroidAppTable({
   search?: string;
   /** `/android/<slug>`. Passed in because a device slug cannot be derived here. */
   base: string;
+  /** The phone's slug, for renames. */
+  device: string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -74,19 +77,24 @@ export function AndroidAppTable({
                   {/* Only apps with a shape worth looking at are links. A uid
                       that moved a few kilobytes once would be a page of one
                       bar, and a dead link is worse than no link. */}
-                  {earnsDetail(a.total, a.days) ? (
-                    <Link
-                      href={`${base}/apps/${a.uid}${search}`}
-                      className="app-name app-link"
-                      title={`${a.name} - uid ${a.uid} - open detail`}
-                    >
-                      {a.name}
-                    </Link>
-                  ) : (
-                    <span className="app-name" title={`${a.name} - uid ${a.uid} - too little activity for a detail page`}>
-                      {a.name}
-                    </span>
-                  )}
+                  <RenameApp
+                    variant="row" platform="android" device={device}
+                    appKey={String(a.uid)} name={a.name} baseName={a.baseName}
+                  >
+                    {earnsDetail(a.total, a.days) ? (
+                      <Link
+                        href={`${base}/apps/${a.uid}${search}`}
+                        className="app-name app-link"
+                        title={`${a.name} - uid ${a.uid} - open detail`}
+                      >
+                        {a.name}
+                      </Link>
+                    ) : (
+                      <span className="app-name" title={`${a.name} - uid ${a.uid} - too little activity for a detail page`}>
+                        {a.name}
+                      </span>
+                    )}
+                  </RenameApp>
                   {a.packages > 1 && (
                     <span className="badge app-kind" title={`${a.packages} packages share uid ${a.uid}`}>
                       +{a.packages - 1}

@@ -21,8 +21,8 @@ import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Data Usage',
-    short_name: 'Data Usage',
+    name: 'Data Usage Dashboard',
+    short_name: 'Data Usage Dashboard',
     description: 'Local dashboard over per-app network usage history.',
     start_url: '/',
     scope: '/',

@@ -9,7 +9,7 @@ import {
  *   page head    101 / 111, or 107 / 117 with a badge -> 111 (see backLink)
  *   score grid   338 / 147
  *   Daily usage  491 / 426 -> 458
- *   Hour of day  346 / 346 -> 346
+ *   Hour of day  387 / 387 -> 387 (2026-09-30: Download / Upload legend)
  *   By network   464 / 436 -> 450 (median; 224 for an app seen on one network)
  *
  * By network is reproduced because every app has it: it was on every page
@@ -28,7 +28,7 @@ export default function Loading() {
       <SkeletonStatGrid columns={4} valueHeight={51} />
       <SkeletonCard contentHeight={332} />
       <SkeletonGap />
-      <SkeletonCard contentHeight={219} />
+      <SkeletonCard contentHeight={260} />
       <SkeletonGap />
       <SkeletonCard contentHeight={324} />
     </>

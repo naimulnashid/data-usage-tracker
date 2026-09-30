@@ -41,13 +41,14 @@ export function parseDays(raw: string | undefined): number {
 }
 
 /**
- * `?days=` and `?profile=` as a query suffix ("" when neither is set), for a
- * link between two views of one device that must not reset the reader's scope.
+ * `?days=` as a query suffix ("" when unset), for a link between two views of
+ * one device that must not reset the reader's range.
+ *
+ * `?profile=` used to ride along too. The network selector it came from was
+ * removed on 2026-09-30 -- "Where it went" on the overview answers the
+ * per-network question now -- and pages no longer read it, so an old link
+ * carrying it shows everything rather than a filter with no visible control.
  */
-export function scopeQuery(sp: { days?: string; profile?: string }): string {
-  const q = new URLSearchParams();
-  if (sp.days) q.set('days', sp.days);
-  if (sp.profile) q.set('profile', sp.profile);
-  const s = q.toString();
-  return s ? `?${s}` : '';
+export function scopeQuery(sp: { days?: string }): string {
+  return sp.days ? `?${new URLSearchParams({ days: sp.days })}` : '';
 }

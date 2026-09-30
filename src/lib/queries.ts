@@ -19,7 +19,8 @@ import 'server-only';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
 import { configPath } from './config-path';
-import { resolveApp } from './app-name';
+import { resolveApp, type ResolvedApp } from './app-name';
+import { readRenames, WINDOWS_RENAMES } from './app-renames';
 import { deviceSlug } from './nav';
 import { assignColors, type AppColorMap } from './app-colors';
 import { toLocalBuckets, type AppKind } from './srum';
@@ -29,8 +30,6 @@ import {
 } from './days';
 
 export interface Scope {
-  /** `l2_profile_id`, or null for every network. */
-  profileId: string | null;
   /** Window length in days, counted back from the newest local_date present. */
   days: number;
 }
@@ -162,6 +161,23 @@ function withDb<T>(fn: (db: DatabaseSync) => T): T {
   }
 }
 
+/** A resolved app plus the name it would have without the user's rename. */
+type Named = ResolvedApp & { baseName: string };
+
+/**
+ * `resolveApp`, with the user's renames (lib/app-renames.ts) applied to the
+ * FAMILY's display name. Every query below that shows an app name goes through
+ * this, so a rename reaches tables, charts, legends and the detail page from
+ * one place. `baseName` is kept because colours and logos stay keyed by it.
+ */
+function appResolver(db: DatabaseSync): (identity: string, kind: AppKind) => Named {
+  const renames = readRenames(db, WINDOWS_RENAMES);
+  return (identity, kind) => {
+    const r = resolveApp(identity, kind);
+    return { ...r, baseName: r.displayName, displayName: renames.get(r.groupKey) ?? r.displayName };
+  };
+}
+
 /**
  * Build the shared `WHERE` fragment + params for a scope, plus the first day it
  * admits, which the daily series start from.
@@ -181,13 +197,7 @@ function scopeClause(
   since.setUTCDate(since.getUTCDate() - (scope.days - 1));
   const sinceStr = since.toISOString().slice(0, 10);
 
-  const params: string[] = [sinceStr];
-  let sql = 'local_date >= ?';
-  if (scope.profileId) {
-    sql += ' AND l2_profile_id = ?';
-    params.push(scope.profileId);
-  }
-  return { sql, params, from: sinceStr };
+  return { sql: 'local_date >= ?', params: [sinceStr], from: sinceStr };
 }
 
 /**
@@ -268,7 +278,7 @@ export interface OverviewData {
   today: Totals;
   week: Totals;
   month: Totals;
-  /** Every day held, ignoring the range selector. Still honours the network scope. */
+  /** Every day held, ignoring the range selector. */
   all: Totals;
   /** What "all" actually covers, so the card can say so rather than implying forever. */
   coverage: { first: string; last: string; days: number } | null;
@@ -301,18 +311,15 @@ export function getOverview(scope: Scope): OverviewData {
       };
     }
 
-    const prof = scope.profileId ? ' AND l2_profile_id = ?' : '';
-    const profParams = scope.profileId ? [scope.profileId] : [];
-
     // Totals always read the aggregate rows.
     const windowTotals = (fromDate: string): Totals =>
       totalsRow(
         db
           .prepare(
             `SELECT SUM(bytes_sent) s, SUM(bytes_received) r FROM usage_records
-             WHERE is_aggregate = 1 AND local_date >= ?${prof}`,
+             WHERE is_aggregate = 1 AND local_date >= ?`,
           )
-          .get(fromDate, ...profParams) as { s: number | null; r: number | null },
+          .get(fromDate) as { s: number | null; r: number | null },
       );
 
     const back = (n: number): string => {
@@ -348,6 +355,8 @@ export function getOverview(scope: Scope): OverviewData {
     // It will therefore total slightly less than the headline figure; the
     // difference is the unattributed remainder.
     const focusApp = splitAppName();
+    let focusLabel = focusApp;
+    const resolve = appResolver(db);
     const sc = scopeClause(db, scope);
     const perApp = db
       .prepare(
@@ -360,9 +369,13 @@ export function getOverview(scope: Scope): OverviewData {
     let focus = 0;
     let other = 0;
     for (const row of perApp) {
-      const { displayName } = resolveApp(row.i, row.k as AppKind);
-      if (focusApp !== null && displayName === focusApp) focus += Number(row.b);
-      else other += Number(row.b);
+      // `splitApp` in config names the app as the code resolves it; compare
+      // against that, and show whatever the user has renamed it to.
+      const { displayName, baseName } = resolve(row.i, row.k as AppKind);
+      if (focusApp !== null && baseName === focusApp) {
+        focus += Number(row.b);
+        focusLabel = displayName;
+      } else other += Number(row.b);
     }
 
     const meanDaily = rowDays.length
@@ -371,23 +384,22 @@ export function getOverview(scope: Scope): OverviewData {
 
     // All-time, deliberately ignoring scope.days: the "All" card answers "how
     // much history do we actually hold", which the range selector must not
-    // change. It still honours the network scope, so it agrees with its
-    // neighbours.
+    // change.
     const all = totalsRow(
       db
         .prepare(
           `SELECT SUM(bytes_sent) s, SUM(bytes_received) r FROM usage_records
-           WHERE is_aggregate = 1${prof}`,
+           WHERE is_aggregate = 1`,
         )
-        .get(...profParams) as { s: number | null; r: number | null },
+        .get() as { s: number | null; r: number | null },
     );
 
     const cov = db
       .prepare(
         `SELECT MIN(local_date) a, MAX(local_date) b, COUNT(DISTINCT local_date) d
-         FROM usage_records WHERE is_aggregate = 1${prof}`,
+         FROM usage_records WHERE is_aggregate = 1`,
       )
-      .get(...profParams) as { a: string | null; b: string | null; d: number };
+      .get() as { a: string | null; b: string | null; d: number };
 
     const peak = rowDays.reduce<{ date: string; total: number } | null>(
       (best, d) => (best === null || d.total > best.total ? { date: d.date, total: d.total } : best),
@@ -397,7 +409,7 @@ export function getOverview(scope: Scope): OverviewData {
     return {
       today, week, month, all,
       coverage: cov.a && cov.b ? { first: cov.a, last: cov.b, days: Number(cov.d) } : null,
-      peak, daily, split: { app: focusApp, focus, other }, latestDate: newest, meanDaily,
+      peak, daily, split: { app: focusLabel, focus, other }, latestDate: newest, meanDaily,
     };
   });
 }
@@ -415,17 +427,16 @@ export interface HeatmapDay {
  * Daily totals for the activity heat map.
  *
  * Deliberately ignores the page's day-range selector: the heat map always shows
- * a fixed six months, which is its whole point. It DOES honour the network
- * scope, so it agrees with the rest of the page.
+ * a fixed six months, which is its whole point.
  *
  * The component draws a day it is not given as "no data collected", and a day
  * given as 0 as quiet. So this returns days with rows, plus 0 for every day SRUM
  * is known to have held (`collectedDays`) -- and nothing for a day it never
  * held, because colouring that as quiet would invent history. It used to
- * return rows only, which drew the laptop's three switched-off days, and every
- * day spent on another network under a scope, as never collected.
+ * return rows only, which drew the laptop's three switched-off days as never
+ * collected.
  */
-export function getHeatmap(profileId: string | null, weeks: number | null = 26): HeatmapDay[] {
+export function getHeatmap(weeks: number | null = 26): HeatmapDay[] {
   return withDb((db) => {
     // `weeks: null` is the expanded page: every day held. An empty string
     // sorts before every date, so the query and `laterOf` both pass it through.
@@ -436,19 +447,16 @@ export function getHeatmap(profileId: string | null, weeks: number | null = 26):
       sinceStr = since.toISOString().slice(0, 10);
     }
 
-    const prof = profileId ? ' AND l2_profile_id = ?' : '';
-    const params: (string | number)[] = profileId ? [sinceStr, profileId] : [sinceStr];
-
     const totals = new Map(
       (
         db
           .prepare(
             `SELECT local_date d, SUM(bytes_sent + bytes_received) b
              FROM usage_records
-             WHERE is_aggregate = 1 AND local_date >= ?${prof}
+             WHERE is_aggregate = 1 AND local_date >= ?
              GROUP BY local_date`,
           )
-          .all(...params) as { d: string; b: number }[]
+          .all(sinceStr) as { d: string; b: number }[]
       ).map((r) => [r.d, Number(r.b)]),
     );
 
@@ -468,6 +476,8 @@ export function getHeatmap(profileId: string | null, weeks: number | null = 26):
 export interface AppRow {
   key: string;
   name: string;
+  /** The name without the user's rename; equal to `name` when there is none. */
+  baseName: string;
   kind: AppKind;
   sent: number;
   received: number;
@@ -556,10 +566,11 @@ export function getByApp(scope: Scope): ByAppData {
     // collapse back into one entry each -- without it, one app shows up several
     // times, each looking smaller than it is.
     const grouped = new Map<string, AppRow>();
+    const resolve = appResolver(db);
     for (const row of raw) {
-      const { groupKey, displayName, kind } = resolveApp(row.i, row.k as AppKind);
+      const { groupKey, displayName, baseName, kind } = resolve(row.i, row.k as AppKind);
       const cur = grouped.get(groupKey) ?? {
-        key: groupKey, name: displayName, kind,
+        key: groupKey, name: displayName, baseName, kind,
         sent: 0, received: 0, total: 0, share: 0, rows: 0,
         days: 0, detailed: false,
       };
@@ -603,6 +614,8 @@ export function getByApp(scope: Scope): ByAppData {
 export interface AppDetail {
   key: string;
   name: string;
+  /** The name without the user's rename; equal to `name` when there is none. */
+  baseName: string;
   kind: AppKind;
   totals: Totals;
   /** Share of all attributed traffic in the same scope. */
@@ -672,7 +685,7 @@ export function getAppDetail(groupKey: string, scope: Scope): AppDetail | null {
     if (mine.length === 0) return null;
 
     const first = mine[0]!;
-    const resolved = resolveApp(first.i, first.k as AppKind);
+    const resolved = appResolver(db)(first.i, first.k as AppKind);
 
     const identities = mine
       .map((x) => ({ identity: x.i, kind: x.k, bytes: Number(x.s) + Number(x.r) }))
@@ -753,7 +766,7 @@ export function getAppDetail(groupKey: string, scope: Scope): AppDetail | null {
       total: Number(x.s) + Number(x.r),
     })), (hour) => ({ hour, sent: 0, received: 0, total: 0 }));
 
-    // Same disambiguation the scope bar uses: without the suffix every
+    // Same disambiguation "Where it went" uses: without the suffix every
     // still-unnamed profile renders as a bare "Wi-Fi", and a five-row table of
     // identical labels tells the reader nothing.
     const profileNames = new Map(
@@ -788,6 +801,7 @@ export function getAppDetail(groupKey: string, scope: Scope): AppDetail | null {
     return {
       key: groupKey,
       name: resolved.displayName,
+      baseName: resolved.baseName,
       kind: resolved.kind,
       totals: { sent, received, total },
       share: attributed.b ? (total / Number(attributed.b)) * 100 : 0,
@@ -838,8 +852,9 @@ export function getTimeline(scope: Scope, topN = 8): TimelineData {
     const totalByApp = new Map<string, number>();
     const perDay = new Map<string, Map<string, number>>();
 
+    const resolve = appResolver(db);
     for (const row of raw) {
-      const { displayName } = resolveApp(row.i, row.k as AppKind);
+      const { displayName } = resolve(row.i, row.k as AppKind);
       const bytes = Number(row.b);
       totalByApp.set(displayName, (totalByApp.get(displayName) ?? 0) + bytes);
       const day = perDay.get(row.d) ?? new Map<string, number>();
@@ -1061,20 +1076,140 @@ export function getAppColorMap(): AppColorMap {
       )
       .all() as { i: string; k: string; b: number }[];
 
+    // Ranked and coloured by the ORIGINAL names, so a brand colour survives a
+    // rename; each renamed app then takes its original's colour under its new
+    // name. See lib/app-renames.ts.
     const totals = new Map<string, number>();
+    const renamed = new Map<string, string>();
+    const resolve = appResolver(db);
     for (const r of rows) {
-      const { displayName } = resolveApp(r.i, r.k as AppKind);
-      totals.set(displayName, (totals.get(displayName) ?? 0) + Number(r.b));
+      const { displayName, baseName } = resolve(r.i, r.k as AppKind);
+      totals.set(baseName, (totals.get(baseName) ?? 0) + Number(r.b));
+      if (displayName !== baseName) renamed.set(displayName, baseName);
     }
 
-    return assignColors(
+    const map = assignColors(
       [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name),
     );
+    for (const [name, base] of renamed) if (map[base]) map[name] = map[base]!;
+    return map;
+  });
+}
+
+/**
+ * Every app family ever seen on the laptop, as shown (`name`) and as it would
+ * be without a rename (`base`), keyed by groupKey. What a rename is checked
+ * against -- is the key real, is the name taken -- and where the logo map
+ * learns which renamed apps should keep their original's logo.
+ */
+export function getWindowsAppNames(): Map<string, { name: string; base: string }> {
+  return withDb((db) => {
+    const out = new Map<string, { name: string; base: string }>();
+    const resolve = appResolver(db);
+    for (const r of db
+      .prepare('SELECT DISTINCT app_identity i, app_kind k FROM usage_records WHERE is_aggregate = 0')
+      .all() as { i: string; k: string }[]) {
+      const x = resolve(r.i, r.k as AppKind);
+      if (!out.has(x.groupKey)) out.set(x.groupKey, { name: x.displayName, base: x.baseName });
+    }
+    return out;
   });
 }
 
 /* ------------------------------------------------------------------ */
-/* Scope options                                                      */
+/* Where it went                                                      */
+/* ------------------------------------------------------------------ */
+
+/** The coarse kind of link, which is what the overview's split bar shows. */
+export type LinkKind = 'wifi' | 'wired' | 'mobile' | 'other';
+
+export interface NetworkBreakdown {
+  /** All traffic in the range, from the aggregate rows. */
+  total: number;
+  /** Per kind of link. Wi-Fi and wired are always present, even at 0. */
+  byKind: { kind: LinkKind; total: number }[];
+  /** One row per network profile that moved anything, largest first. */
+  networks: {
+    id: string;
+    label: string;
+    /** False when `label` is only the interface type ("Wi-Fi, unnamed"). */
+    named: boolean;
+    aliases: string[];
+    total: number;
+  }[];
+}
+
+function linkKind(interfaceType: string): LinkKind {
+  if (/IEEE80211/i.test(interfaceType)) return 'wifi';
+  if (/ETHERNET/i.test(interfaceType)) return 'wired';
+  if (/WWANPP|MOBILE/i.test(interfaceType)) return 'mobile';
+  return 'other';
+}
+
+/**
+ * The overview's "Where it went": how the range's traffic divides by kind of
+ * link and by network, the Windows counterpart of the phone's card.
+ *
+ * It replaced the network selector that used to sit in the top bar (removed
+ * 2026-09-30). That selector scoped every figure on every page to one
+ * `L2ProfileId`; this answers the same question -- how much on which network --
+ * in one place, beside totals that no longer change under the reader.
+ *
+ * **Every figure here reads the AGGREGATE rows**, like the headline totals,
+ * so the rows sum to the same number the score cards report. Per-app rows
+ * would come up short by the unattributed remainder.
+ *
+ * Profile `0` is traffic SRUM recorded with no profile at all -- a few KB
+ * across the whole history here -- and is listed as such rather than dropped,
+ * or the rows would not add up to the total above them.
+ */
+export function getNetworkBreakdown(scope: Scope): NetworkBreakdown {
+  const labels = new Map(getProfiles().map((p) => [p.id, p]));
+  return withDb((db) => {
+    const sc = scopeClause(db, scope);
+    const rows = db
+      .prepare(
+        `SELECT interface_type t, l2_profile_id p, SUM(bytes_sent + bytes_received) b
+         FROM usage_records WHERE is_aggregate = 1 AND ${sc.sql}
+         GROUP BY interface_type, l2_profile_id`,
+      )
+      .all(...sc.params) as { t: string; p: string; b: number }[];
+
+    const kinds = new Map<LinkKind, number>([['wifi', 0], ['wired', 0]]);
+    const perProfile = new Map<string, { total: number; type: string }>();
+    let total = 0;
+    for (const r of rows) {
+      const b = Number(r.b);
+      if (!b) continue;
+      total += b;
+      const kind = linkKind(r.t);
+      kinds.set(kind, (kinds.get(kind) ?? 0) + b);
+      const id = r.p && r.p !== '0' ? r.p : '0';
+      const cur = perProfile.get(id);
+      if (cur) cur.total += b;
+      else perProfile.set(id, { total: b, type: r.t });
+    }
+
+    const networks = [...perProfile.entries()]
+      .map(([id, x]) => {
+        if (id === '0') return { id, label: 'No network profile', named: false, aliases: [], total: x.total };
+        const p = labels.get(id);
+        return p
+          ? { id, label: p.label, named: p.named, aliases: p.aliases, total: x.total }
+          : { id, label: prettyInterface(x.type), named: false, aliases: [], total: x.total };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    return {
+      total,
+      byKind: [...kinds.entries()].map(([kind, t]) => ({ kind, total: t })),
+      networks,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Network profiles                                                   */
 /* ------------------------------------------------------------------ */
 
 export interface ProfileOption {

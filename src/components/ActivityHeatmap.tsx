@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { formatBytes, formatDayLong, formatDayShort } from '@/lib/format';
 import { HEATMAP_RAMP, heatmapColor } from '@/lib/app-colors';
 import {
-  WEEKS, DAY_LABELS, recentBlock, expandedBlocks, hasOlderThanRecent, blockLabel,
+  WEEKS, DAY_LABELS, recentBlock, expandedBlocks, blockLabel,
   type HeatmapBlock, type HeatmapDay,
 } from '@/lib/heatmap';
 
@@ -134,21 +134,19 @@ function HeatmapLegend({
 /**
  * The overview card: the last `RANGE_LABEL`.
  *
- * `expandHref` offers the full-history page, but the button only appears once
- * `earliest` -- the first day with data -- is older than this block reaches.
- * Until then the expanded page would show nothing this card does not.
+ * `expandHref` offers the full-history page. The button is always there when
+ * a link is given (since 2026-09-30, at the user's request). It used to appear
+ * only once the data reached back further than this block, on the reasoning
+ * that the expanded page would otherwise show nothing new -- but a control
+ * that is missing until some date is one nobody knows to look for.
  */
 export function ActivityHeatmap({
-  daily, earliest = null, expandHref,
+  daily, expandHref,
 }: {
   daily: HeatmapDay[];
-  earliest?: string | null;
   expandHref?: string;
 }) {
-  const { block, older } = useMemo(
-    () => ({ block: recentBlock(daily), older: hasOlderThanRecent(earliest) }),
-    [daily, earliest],
-  );
+  const block = useMemo(() => recentBlock(daily), [daily]);
 
   return (
     <div className="heatmap">
@@ -162,7 +160,7 @@ export function ActivityHeatmap({
         activeDays={block.activeDays}
         span={`in the last ${RANGE_LABEL}`}
       >
-        {expandHref && older && <Link href={expandHref} className="chip">Expand</Link>}
+        {expandHref && <Link href={expandHref} className="chip">Expand</Link>}
       </HeatmapLegend>
     </div>
   );

@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import {
   getAndroidOverview, getAndroidLastSuccess, getAndroidHeatmap,
   getAndroidTimeline, getAndroidAppColorMap, getSsidBreakdown, deviceBySlug,
-  androidReady, type Totals,
+  androidReady, getAndroidAppNames, type Totals,
 } from '@/lib/android-queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
@@ -12,6 +12,7 @@ import { CountUp } from '@/components/CountUp';
 import { DailyTrendChart, HourlyChart, StackedTimelineChart } from '@/components/Charts';
 import { ChartLegend } from '@/components/ChartLegend';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
+import { BusiestHour } from '@/components/BusiestHour';
 import { AndroidEmpty } from '@/components/AndroidEmpty';
 import { parseDays, scopeQuery } from '@/lib/scope';
 import { daySpanLabel } from '@/lib/days';
@@ -69,7 +70,7 @@ export default async function AndroidPage({
   const id = device.deviceId;
   const data = getAndroidOverview(id, days);
   const lastSync = getAndroidLastSuccess(id);
-  const icons = getAppIconMap(device.slug);
+  const icons = getAppIconMap(device.slug, getAndroidAppNames(device.deviceId).values());
   const colors = getAndroidAppColorMap(id);
   const heatmap = getAndroidHeatmap(id);
   const timeline = getAndroidTimeline(id, days);
@@ -82,11 +83,6 @@ export default async function AndroidPage({
   const wifi = data.byNetwork.find((n) => n.network === 'wifi')?.total ?? 0;
   const mobile = data.byNetwork.find((n) => n.network === 'mobile')?.total ?? 0;
   const netTotal = wifi + mobile;
-
-  const busiest = data.hourly.reduce(
-    (best, h) => (h.total > best.total ? h : best),
-    { hour: 0, total: 0 },
-  );
 
   return (
     <>
@@ -159,7 +155,6 @@ export default async function AndroidPage({
         </CardTitle>
         <ActivityHeatmap
           daily={heatmap}
-          earliest={heatmap[0]?.date ?? null}
           expandHref={`/android/${device.slug}/activity${scopeQuery(sp)}`}
         />
       </Card>
@@ -178,11 +173,8 @@ export default async function AndroidPage({
 
       <Card delay={380} hover={false}>
         <CardTitle
-          sub={
-            `Local time on the phone. Android buckets 2-hourly, so each bar is a `
-            + `two-hour block; the busiest is `
-            + `${String(busiest.hour).padStart(2, '0')}:00-${String((busiest.hour + 2) % 24).padStart(2, '0')}:00.`
-          }
+          sub="Local time on the phone, in Android's two-hour buckets"
+          aside={<BusiestHour data={data.hourly} span={2} />}
         >
           Hour of day
         </CardTitle>

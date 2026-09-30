@@ -6,7 +6,7 @@
  * write-ups; the short version is in the comments below.
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const SCHEMA_SQL = /* sql */ `
 PRAGMA journal_mode = WAL;
@@ -149,6 +149,22 @@ CREATE TABLE IF NOT EXISTS network_names (
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+
+-- Display names chosen in the dashboard (schema 5, 2026-09-30). Here rather
+-- than in config because a rename is part of the history this file preserves:
+-- it is on D:, backed up, and survives the reset. One table for both
+-- platforms, keyed by what already identifies an app on each side:
+--   device 'windows',  app_key = the family groupKey (lib/app-name.ts)
+--   device <id>,       app_key = the Android uid, as text
+-- Display names are otherwise resolved in code and never stored; this holds
+-- only the user's overrides. See lib/app-renames.ts.
+CREATE TABLE IF NOT EXISTS app_renames (
+  device     TEXT NOT NULL,
+  app_key    TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (device, app_key)
 );
 
 /* ======================================================================

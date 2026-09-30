@@ -24,16 +24,14 @@ export async function generateMetadata({
 /**
  * The overview's Activity card, expanded to the whole history.
  *
- * Reached from that card's "Expand" button, which appears only once there is
- * more than it can show -- but the page itself renders for any history, so a
- * bookmark keeps working. Honours the network scope like the card does, and
- * ignores the day range like the card does.
+ * Reached from that card's "Expand" button. Renders for any history, however
+ * short. Ignores the day range like the card does.
  */
 export default async function ActivityPage({
   params, searchParams,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string; profile?: string }>;
+  searchParams: Promise<{ days?: string }>;
 }) {
   if (!databaseExists()) return <EmptyState />;
 
@@ -43,13 +41,12 @@ export default async function ActivityPage({
   const base = `/windows/${device.slug}`;
 
   const sp = await searchParams;
-  const profileId = sp.profile ?? null;
-  const heatmap = getHeatmap(profileId, null);
+  const heatmap = getHeatmap(null);
 
   if (heatmap.length === 0) {
     return getRowCount() === 0
       ? <EmptyState />
-      : <NoDataInScope scoped={profileId !== null} home={base} />;
+      : <NoDataInScope home={base} />;
   }
 
   return (

@@ -164,15 +164,6 @@ export function recentBlock(daily: HeatmapDay[], today = localToday()): HeatmapB
 }
 
 /**
- * True when there is data older than the overview's block can show -- the
- * condition for offering the expanded page at all.
- */
-export function hasOlderThanRecent(earliest: string | null, today = localToday()): boolean {
-  if (!earliest) return false;
-  return earliest < recentBlock([], today).first;
-}
-
-/**
  * Every block from `EXPANDED_FROM` (or the earliest data, if older) to today,
  * oldest first. Consecutive blocks are contiguous weeks, so no week is split
  * or drawn twice where one block meets the next.

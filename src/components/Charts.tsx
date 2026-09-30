@@ -444,6 +444,19 @@ export function HourlyChart({
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    {/* The two shades are otherwise explained only inside the tooltip, which
+        a reader has to find first. Centred under the plot, like the stacked
+        chart's app legend. */}
+    <div className="legend">
+      <span className="legend-item">
+        <span className="legend-swatch" style={{ background: DOWN_COLOR }} />
+        Download
+      </span>
+      <span className="legend-item">
+        <span className="legend-swatch" style={{ background: UP_COLOR }} />
+        Upload
+      </span>
+    </div>
     </ChartFigure>
   );
 }

@@ -22,6 +22,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
 import { configPath } from './config-path';
 import { assignColors, type AppColorMap } from './app-colors';
+import { readRenames } from './app-renames';
 import { byNamingOrder } from './android-names';
 import { deviceSlug } from './nav';
 import {
@@ -72,8 +73,10 @@ function totalsOf(row: { rx: number | null; tx: number | null }): Totals {
 
 export interface AndroidApp {
   uid: number;
-  /** Best label for the uid. */
+  /** Best label for the uid, or the user's rename of it. */
   name: string;
+  /** The label without the user's rename; equal to `name` when there is none. */
+  baseName: string;
   /** How many packages share this uid; >1 means the label is one of several. */
   packages: number;
   /** uid / 100000. Non-zero means a cloned or work-profile app. */
@@ -113,8 +116,16 @@ export interface AndroidOverview {
  * name table on this side. A shared uid takes the label of the first package
  * in `byNamingOrder` (android-names.ts) and reports how many others there are,
  * rather than silently choosing.
+ *
+ * The user's renames (lib/app-renames.ts) ride along and are applied in
+ * `labelFor`, keyed by uid, so every query that names an app honours them.
  */
-function appNames(db: DatabaseSync, deviceId: string): Map<number, { name: string; packages: number }> {
+interface AppNames {
+  byUid: Map<number, { name: string; packages: number }>;
+  renames: Map<string, string>;
+}
+
+function appNames(db: DatabaseSync, deviceId: string): AppNames {
   const rows = (
     db
       .prepare(`SELECT uid, label, package, is_system FROM android_apps WHERE ${OF_DEVICE}`)
@@ -130,12 +141,12 @@ function appNames(db: DatabaseSync, deviceId: string): Map<number, { name: strin
     if (!cur) out.set(uid, { name: r.label || r.package, packages: 1 });
     else cur.packages++;
   }
-  return out;
+  return { byUid: out, renames: readRenames(db, deviceId) };
 }
 
-function labelFor(
+function baseLabelFor(
   uid: number,
-  names: Map<number, { name: string; packages: number }>,
+  names: AppNames['byUid'],
 ): { name: string; packages: number; special: boolean } {
   if (uid === UID_TETHERING) return { name: 'Tethering / hotspot', packages: 0, special: true };
   if (uid === UID_REMOVED) return { name: 'Uninstalled apps', packages: 0, special: true };
@@ -147,6 +158,15 @@ function labelFor(
   if (base) return { name: `${base.name} (clone)`, packages: base.packages, special: false };
   if (uid < 0) return { name: `System uid ${uid}`, packages: 0, special: true };
   return { name: `uid ${uid}`, packages: 0, special: false };
+}
+
+/** The uid's label, with the user's rename applied; `baseName` is without it. */
+function labelFor(
+  uid: number,
+  names: AppNames,
+): { name: string; baseName: string; packages: number; special: boolean } {
+  const base = baseLabelFor(uid, names.byUid);
+  return { ...base, name: names.renames.get(String(uid)) ?? base.name, baseName: base.name };
 }
 
 /** `WHERE` fragment excluding tethering, used everywhere a total is computed. */
@@ -300,6 +320,7 @@ export function getAndroidOverview(deviceId: string, days: number): AndroidOverv
         return {
           uid,
           name: meta.name,
+          baseName: meta.baseName,
           packages: meta.packages,
           profile: uid > 0 ? Math.floor(uid / 100_000) : 0,
           rx,
@@ -556,7 +577,31 @@ export function getAndroidAppColorMap(deviceId: string): AppColorMap {
          WHERE ${OF_DEVICE} AND ${NOT_TETHER} GROUP BY uid ORDER BY b DESC`,
       )
       .all(deviceId) as { uid: number; b: number }[];
-    return assignColors(rows.map((r) => labelFor(Number(r.uid), names).name));
+    // Coloured by the ORIGINAL label, so a brand colour survives a rename; the
+    // renamed app then takes that colour under its new name.
+    const labels = rows.map((r) => labelFor(Number(r.uid), names));
+    const map = assignColors(labels.map((l) => l.baseName));
+    for (const l of labels) if (l.name !== l.baseName && map[l.baseName]) map[l.name] = map[l.baseName]!;
+    return map;
+  });
+}
+
+/**
+ * Every uid this phone has reported (tethering aside, which is not an app), as
+ * shown (`name`) and as labelled without a rename (`base`), keyed by uid as
+ * text. The Android counterpart of `getWindowsAppNames`.
+ */
+export function getAndroidAppNames(deviceId: string): Map<string, { name: string; base: string }> {
+  return withDb((db) => {
+    const names = appNames(db, deviceId);
+    const out = new Map<string, { name: string; base: string }>();
+    for (const r of db
+      .prepare(`SELECT DISTINCT uid FROM android_usage_records WHERE ${OF_DEVICE} AND ${NOT_TETHER}`)
+      .all(deviceId) as { uid: number }[]) {
+      const l = labelFor(Number(r.uid), names);
+      out.set(String(r.uid), { name: l.name, base: l.baseName });
+    }
+    return out;
   });
 }
 
@@ -673,6 +718,8 @@ export interface AndroidPackage {
 export interface AndroidAppDetail {
   uid: number;
   name: string;
+  /** The label without the user's rename; equal to `name` when there is none. */
+  baseName: string;
   profile: number;
   special: boolean;
   totals: Totals;
@@ -804,6 +851,7 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
     return {
       uid,
       name: meta.name,
+      baseName: meta.baseName,
       profile: uid > 0 ? Math.floor(uid / 100_000) : 0,
       special: meta.special,
       totals,

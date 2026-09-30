@@ -35,11 +35,19 @@ const RENDERABLE = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.
  * no shared tier and no fallback to a sibling folder -- see `app-icons.ts` for
  * why that is the point rather than an omission.
  *
- * Two passes, and the order matters: file stems first, so any file at all is
+ * Three passes, and the order matters: file stems first, so any file at all is
  * reachable by its own name, then aliases, so a curated pointer can override a
- * coincidental stem match.
+ * coincidental stem match -- then the user's renames.
+ *
+ * `renamed` is every app on the device as shown (`name`) and as it would be
+ * without a rename (`base`). A renamed app with no file of its own takes its
+ * original name's logo, so renaming "Microsoft Edge" to "Edge" keeps the mark;
+ * a file named for the new name, dropped in like any other, still wins.
  */
-export function getAppIconMap(device: string): AppIconMap {
+export function getAppIconMap(
+  device: string,
+  renamed: Iterable<{ name: string; base: string }> = [],
+): AppIconMap {
   let files: string[];
   try {
     files = readdirSync(join(process.cwd(), ...LOGO_ROOT, device), { withFileTypes: true })
@@ -69,6 +77,11 @@ export function getAppIconMap(device: string): AppIconMap {
   for (const [name, stem] of Object.entries(ICON_ALIASES)) {
     const spec = byStem.get(stem.toLowerCase());
     if (spec) map[name.toLowerCase()] = spec;
+  }
+  for (const { name, base } of renamed) {
+    const to = name.toLowerCase();
+    const from = map[base.toLowerCase()];
+    if (to !== base.toLowerCase() && !map[to] && from) map[to] = from;
   }
   return map;
 }

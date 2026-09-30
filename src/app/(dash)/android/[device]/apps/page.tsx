@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { androidTitle } from '@/lib/page-title';
 import { notFound } from 'next/navigation';
 import {
-  getAndroidOverview, getAndroidAppColorMap, deviceBySlug, androidReady,
+  getAndroidOverview, getAndroidAppColorMap, deviceBySlug, androidReady, getAndroidAppNames,
 } from '@/lib/android-queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
@@ -48,7 +48,7 @@ export default async function AndroidAppsPage({
 
   const data = getAndroidOverview(device.deviceId, days);
   const colors = getAndroidAppColorMap(device.deviceId);
-  const icons = getAppIconMap(device.slug);
+  const icons = getAppIconMap(device.slug, getAndroidAppNames(device.deviceId).values());
 
   const named = data.apps.reduce((a, x) => a + x.total, 0);
   const top = data.apps.slice(0, 10).map((a) => ({
@@ -86,7 +86,7 @@ export default async function AndroidAppsPage({
         >
           Apps
         </CardTitle>
-        <AndroidAppTable apps={data.apps} icons={icons} colors={colors} search={search} base={`/android/${slug}`} />
+        <AndroidAppTable apps={data.apps} icons={icons} colors={colors} search={search} base={`/android/${slug}`} device={slug} />
       </Card>
     </>
   );

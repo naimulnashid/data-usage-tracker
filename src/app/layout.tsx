@@ -8,11 +8,11 @@ import { ServiceWorker } from '@/components/ServiceWorker';
 export const metadata: Metadata = {
   // Pages name themselves (lib/page-title.ts); this adds the suffix, and is
   // the whole title for anything that does not.
-  title: { default: 'Data Usage', template: '%s · Data Usage' },
+  title: { default: 'Data Usage Dashboard', template: '%s · Data Usage Dashboard' },
   description: 'Local dashboard over Windows per-app network usage history.',
   // The manifest itself is src/app/manifest.ts, linked by Next. iOS reads
   // neither its icons nor its display mode, so it gets its own two lines.
-  appleWebApp: { capable: true, title: 'Data Usage', statusBarStyle: 'black' },
+  appleWebApp: { capable: true, title: 'Data Usage Dashboard', statusBarStyle: 'black' },
   icons: { apple: '/pwa/apple-touch-icon.png' },
 };
 

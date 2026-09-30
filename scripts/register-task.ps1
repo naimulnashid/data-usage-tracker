@@ -10,7 +10,7 @@
     TWO TASKS, SPLIT BY PRIVILEGE (since 2026-09-21)
     ------------------------------------------------
 
-      Data Usage Collector   daily 03:30, NOT elevated. Runs the repo's
+      Data Usage Collector   hourly, NOT elevated. Runs the repo's
                              collector.ps1: parse, ingest, backup. This is
                              also what the dashboard's Sync button starts.
       Data Usage Snapshot    on demand only, elevated. Runs srum-snapshot.ps1,
@@ -37,7 +37,8 @@
 param(
     [string]$TaskName         = 'Data Usage Collector',
     [string]$SnapshotTaskName = 'Data Usage Snapshot',
-    [string]$Time             = '03:30',
+    [ValidateRange(1, 24)]
+    [int]$EveryHours          = 1,
     [switch]$RunNow,
     [switch]$Unregister
 )
@@ -174,7 +175,7 @@ Register-ScheduledTask `
 Write-Host "Registered '$SnapshotTaskName' - on demand, highest privileges." -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# 3. The collector: daily, NOT elevated
+# 3. The collector: hourly, NOT elevated
 # ---------------------------------------------------------------------------
 
 # -ExecutionPolicy Bypass so the task does not depend on the machine policy,
@@ -184,7 +185,19 @@ $action = New-ScheduledTaskAction `
     -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$collector`" -Quiet" `
     -WorkingDirectory $root
 
-$trigger = New-ScheduledTaskTrigger -Daily -At $Time
+# HOURLY since 2026-09-30, and it was daily before that on purpose: SRUM
+# writes hourly and keeps 30+ days, so daily was already LOSSLESS. What daily
+# cost was FRESHNESS -- the dashboard reads only the database, so it was up to
+# a day behind the machine, with nothing on the page saying so. The Screen Time
+# Tracker learned the same lesson and moved its ingest to hourly.
+#
+# -Once at midnight with a repetition, not 24 daily triggers. No
+# -RepetitionDuration: omitting it is what means "forever", and passing
+# [TimeSpan]::MaxValue serialises to a value Task Scheduler rejects. A -Once
+# trigger keeps its repetition across re-registration; an AtLogOn-only one
+# loses it, and the task then silently never repeats.
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date `
+    -RepetitionInterval (New-TimeSpan -Hours $EveryHours)
 
 # LIMITED, not Highest. This task runs code from the repo, which the user can
 # edit, so it must not carry more privilege than the user already has. The one
@@ -202,8 +215,9 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Hours 1)
 
 # StartWhenAvailable is the important one: it runs a missed occurrence once the
-# machine is next on. Without it, a laptop that is asleep at 03:30 simply skips
-# the day, and enough skipped days in a row means losing data to SRUM eviction.
+# machine is next on. Without it, a laptop that sleeps through its runs simply
+# skips them, and enough skipped days in a row means losing data to SRUM
+# eviction. IgnoreNew keeps a slow run from stacking under the next hour's.
 
 Register-ScheduledTask `
     -TaskName $TaskName `
@@ -211,10 +225,10 @@ Register-ScheduledTask `
     -Trigger $trigger `
     -Principal $principal `
     -Settings $settings `
-    -Description 'Collects Windows per-app network usage daily into a persistent SQLite database outside the OS partition. Runs unelevated; the VSS snapshot is delegated to the Data Usage Snapshot task.' `
+    -Description 'Collects Windows per-app network usage hourly into a persistent SQLite database outside the OS partition. Runs unelevated; the VSS snapshot is delegated to the Data Usage Snapshot task.' `
     -Force | Out-Null
 
-Write-Host "Registered '$TaskName' - daily at $Time, NOT elevated." -ForegroundColor Green
+Write-Host "Registered '$TaskName' - every $EveryHours hour(s), NOT elevated." -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
 # 4. Export both for reset recovery

@@ -14,7 +14,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
   return (
     <html lang="en">
       <head>
-        <title>Error · Data Usage</title>
+        <title>Error · Data Usage Dashboard</title>
         <style dangerouslySetInnerHTML={{ __html: accentStyleSheet() }} />
       </head>
       <body>

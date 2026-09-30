@@ -64,11 +64,11 @@ export default async function SyncPage({
   const lastOnPage = Math.min(safePage * PAGE_SIZE, data.totalRuns);
   const hours = data.hoursSinceSuccess;
 
-  // 24h cadence, so ~36h is a missed run and 48h+ means something is wrong.
-  // The task has StartWhenAvailable, so even a machine that was off should
-  // catch up shortly after it is switched on.
+  // Hourly cadence. A few hours is a laptop that was asleep or off -- the task
+  // has StartWhenAvailable, so it catches up minutes after waking -- while
+  // 48h+ means the task itself has stopped.
   const stale = hours != null && hours > 48;
-  const warn = hours != null && hours > 36 && !stale;
+  const warn = hours != null && hours > 3 && !stale;
   const broken = data.consecutiveFailures >= 2;
 
   return (
@@ -88,11 +88,11 @@ export default async function SyncPage({
             <p style={{ margin: '0.4rem 0 0', color: 'var(--text)' }}>
               {broken
                 ? `The last ${data.consecutiveFailures} runs failed. New usage is not being saved, and SRUM evicts its own history after roughly 55 days.`
-                : `No successful run in ${hours != null ? Math.round(hours) : '?'} hours. Expected cadence is daily.`}
+                : `No successful run in ${hours != null ? Math.round(hours) : '?'} hours. Expected cadence is hourly.`}
             </p>
             <p style={{ margin: '0.6rem 0 0', color: 'var(--text-dim)', fontSize: 'var(--fs-small)' }}>
               Check <code className="mono">logs/collector-*.log</code>, then re-run{' '}
-              <code className="mono">scripts\collector.ps1</code> from an elevated shell.
+              <code className="mono">scripts\collector.ps1</code> from any shell.
             </p>
           </div>
         </div>
@@ -229,8 +229,8 @@ export default async function SyncPage({
 
       {warn && (
         <p style={{ marginTop: '1.15rem', color: 'var(--text-dim)', fontSize: 'var(--fs-small)' }}>
-          Last run was {Math.round(hours!)} hours ago — slightly over the daily cadence, but the
-          task is set to catch up when the machine is next on, so this usually resolves itself.
+          Last run was {Math.round(hours!)} hours ago, against an hourly cadence. The task
+          catches up when the machine is next on, so after sleep this resolves itself.
         </p>
       )}
     </>

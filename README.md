@@ -58,7 +58,7 @@ those bytes.
 ## How it works
 
 ```
-Task Scheduler, daily 03:30 (not elevated)
+Task Scheduler, hourly (not elevated)
         │
         ├─ 1. esentutl /vss  →  shadow-copy the locked SRUDB.dat
         │                       (the one elevated step, run by its own task)
@@ -169,7 +169,7 @@ powershell -ExecutionPolicy Bypass -File scripts\register-task.ps1 -RunNow
 
 This registers two tasks and runs a first collection:
 
-- **Data Usage Collector**: daily at 03:30, catching up if the machine was off.
+- **Data Usage Collector**: hourly, catching up if the machine was off.
   It runs **unelevated**: it parses, ingests, backs up and cleans up.
 - **Data Usage Snapshot**: elevated, on demand, and started only by the
   collector. It takes the shadow copy of the locked SRUM database and nothing
@@ -290,19 +290,20 @@ it over USB when you want it.
 
 | Page | Shows |
 |---|---|
-| **Overview** | All / 30 days / 7 days / latest day, the daily trend, a six-month heat map, daily usage by app, hour of day |
+| **Overview** | All / 30 days / 7 days / latest day, the daily trend, a six-month heat map, daily usage by app, hour of day, and where it went: Wi-Fi against wired, per network |
 | **By App** | Every app with enough activity for a detail page, expandable to every app seen |
 | **App detail** | One app's daily and hourly usage, networks, and which programs were grouped into it |
 | **Sync Status** | Collector run history, with warnings when it has stopped |
 | **Phone pages** | The same views for each phone, plus per-network (SSID) traffic |
 
-The date range and network live in the URL, so every view is linkable, for
-example `/windows/my-pc/apps?days=90&profile=268435457`. **Sync now** in the top
-bar runs a collection on demand.
+The date range lives in the URL, so every view is linkable, for example
+`/windows/my-pc/apps?days=90`. **Sync now** in the top bar runs a collection on
+demand. Any app can be renamed with the pencil beside its name; the rename is
+stored in the database and keeps the app's colour and logo.
 
 **Totals will not match Windows' page exactly, and that is expected.** Windows
-scopes its page to one network; the dashboard defaults to all of them. Pick a
-network in the top bar to compare like for like.
+scopes its page to one network; the dashboard counts all of them. Compare
+Windows' figure with that network's row under "Where it went" on the Overview.
 
 **Watch Sync Status.** Surviving a reset depends on the collector actually
 running; that page is where you notice it has stopped.

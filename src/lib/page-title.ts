@@ -4,12 +4,12 @@ import { windowsDeviceBySlug } from './queries';
 import { deviceBySlug } from './android-queries';
 
 /**
- * Page titles: "<page> · <device> · Data Usage".
+ * Page titles: "<page> · <device> · Data Usage Dashboard".
  *
  * Every page used to share the one title from the root layout, so tabs,
  * history and bookmarks were indistinguishable, and a screen reader announced
  * the same thing on every navigation (WCAG 2.4.2). The root layout supplies
- * the "· Data Usage" suffix as a template; these supply the rest.
+ * the "· Data Usage Dashboard" suffix as a template; these supply the rest.
  *
  * A slug that names no device gets "Not found", matching what the page itself
  * renders for it.

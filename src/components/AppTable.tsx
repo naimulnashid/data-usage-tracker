@@ -6,6 +6,7 @@ import type { AppRow } from '@/lib/queries';
 import { colorOf, type AppColorMap } from '@/lib/app-colors';
 import type { AppIconMap } from '@/lib/app-icons';
 import { AppIcon } from './AppIcon';
+import { RenameApp } from './RenameApp';
 import { formatBytes, formatCount, formatPercent } from '@/lib/format';
 
 type SortKey = 'name' | 'sent' | 'received' | 'total' | 'rows';
@@ -19,15 +20,17 @@ const COLUMNS: { key: SortKey; label: string; numeric: boolean }[] = [
 ];
 
 export function AppTable({
-  apps, colors, icons, search = '', base,
+  apps, colors, icons, search = '', base, device,
 }: {
   apps: AppRow[];
   colors: AppColorMap;
   icons: AppIconMap;
-  /** Current ?days/?profile, carried into detail links so scope survives. */
+  /** Current ?days, carried into detail links so the range survives. */
   search?: string;
   /** `/windows/<slug>`. Passed in because a device slug cannot be derived here. */
   base: string;
+  /** The laptop's slug, for renames. */
+  device: string;
 }) {
   const [sort, setSort] = useState<SortKey>('total');
   const [asc, setAsc] = useState(false);
@@ -121,22 +124,27 @@ export function AppTable({
                     page containing a single bar -- so a dead link would be
                     worse than no link. The title says which.
                   */}
-                  {a.detailed ? (
-                    <Link
-                      href={`${base}/apps/${encodeURIComponent(a.key)}${search}`}
-                      className="app-name app-link"
-                      title={`${a.name} - open detail`}
-                    >
-                      {a.name}
-                    </Link>
-                  ) : (
-                    <span
-                      className="app-name"
-                      title={`${a.name} - too little activity for a detail page`}
-                    >
-                      {a.name}
-                    </span>
-                  )}
+                  <RenameApp
+                    variant="row" platform="windows" device={device}
+                    appKey={a.key} name={a.name} baseName={a.baseName}
+                  >
+                    {a.detailed ? (
+                      <Link
+                        href={`${base}/apps/${encodeURIComponent(a.key)}${search}`}
+                        className="app-name app-link"
+                        title={`${a.name} - open detail`}
+                      >
+                        {a.name}
+                      </Link>
+                    ) : (
+                      <span
+                        className="app-name"
+                        title={`${a.name} - too little activity for a detail page`}
+                      >
+                        {a.name}
+                      </span>
+                    )}
+                  </RenameApp>
                   {a.kind !== 'path' && (
                     <span className="badge app-kind">
                       {a.kind === 'appx' ? 'store' : a.kind}

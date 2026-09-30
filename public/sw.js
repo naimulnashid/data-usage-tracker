@@ -17,7 +17,7 @@
  *
  * Bump CACHE when offline.html changes, or installed apps keep the old copy.
  */
-const CACHE = 'offline-v1';
+const CACHE = 'offline-v2';
 const OFFLINE = '/pwa/offline.html';
 
 self.addEventListener('install', (event) => {

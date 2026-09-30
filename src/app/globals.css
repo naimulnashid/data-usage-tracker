@@ -749,12 +749,12 @@ select.chip option { background: #0c0c0e; color: var(--text); }
 }
 
 /*
-  Scope controls: the network selector and the range chips.
+  Scope controls: the range chips. (A network selector sat here too until
+  2026-09-30, and was the reason this group had to be able to split.)
 
   These carried their layout as inline styles, which no media or container rule
-  can reach. They are classes now for one reason: the group is the widest thing
-  in the bar -- 474px against the 296px available on a phone -- so it has to be
-  able to split, and the two halves have to stay right-aligned when it does.
+  can reach. They are classes so the group can wrap and stay right-aligned
+  when it does.
 */
 .scope-bar {
   display: flex;
@@ -769,17 +769,14 @@ select.chip option { background: #0c0c0e; color: var(--text); }
 /*
   A flex item defaults to `min-width: auto`, meaning "never shrink below your
   content", and that is what let the controls push past the bar's padding at
-  320px. The chain has to opt out at every level -- the group, the scope
-  cluster, and the select itself -- or the widest network name still sets a
-  floor three elements up.
+  320px. The chain has to opt out at every level -- the group and the scope
+  cluster -- or the widest control still sets a floor elements up.
 
-  `max-width: 100%` on the select was tried here first and made it WORSE, not
-  better: a percentage max-width against an auto-sized flex parent is circular,
-  and the select resolved to its full 401px intrinsic width inside a 258px bar.
-  Shrinking is the job of `min-width`, not `max-width`.
+  Use `min-width`, not `max-width: 100%`: a percentage max-width against an
+  auto-sized flex parent is circular, and was measured making the old network
+  select WIDER (401px inside a 258px bar).
 */
 .topbar-right, .scope-bar { min-width: 0; }
-.scope-bar select { min-width: 0; }
 
 .sync-button { display: inline-flex; align-items: center; gap: 0.45rem; }
 .sync-button:disabled { opacity: 0.75; cursor: progress; transform: none; }
@@ -1056,6 +1053,41 @@ select.chip option { background: #0c0c0e; color: var(--text); }
   margin-top: 0.6rem;
 }
 
+/* ---------------------------------------------------------------- rename */
+
+/* The pencil beside an app's name. Quiet until wanted: in a table it shows on
+   row hover or keyboard focus only, so a hundred rows are not a column of
+   pencils -- but a touch screen has no hover, so there it always shows. */
+.rename-btn {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  border-radius: 999px; border: 1px solid transparent;
+  background: transparent; color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.rename-btn:hover, .rename-btn:focus-visible { color: var(--text); border-color: var(--border-strong); }
+.app-table .rename-btn { opacity: 0; }
+.app-table tr:hover .rename-btn, .app-table .rename-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .app-table .rename-btn { opacity: 1; } }
+.app-title .rename-btn { width: 32px; height: 32px; }
+
+.rename-form {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.4rem; flex: 1; min-width: 0;
+}
+.rename-input {
+  flex: 1 1 10rem; min-width: 0; max-width: 26rem;
+  font: inherit; font-size: var(--fs-small); color: var(--text);
+  background: var(--bg-inset); border: 1px solid var(--border-strong);
+  border-radius: 8px; padding: 0.35rem 0.6rem;
+}
+.rename-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.app-title .rename-input { font-size: 1.5rem; font-weight: 650; padding: 0.3rem 0.7rem; }
+.chip--small { padding: 0.28rem 0.7rem; font-size: 0.8125rem; }
+.rename-error { flex-basis: 100%; color: var(--danger); font-size: 0.8125rem; }
+
 /* Same fixed layout as the app table, so the merged breakdown reads as a
    smaller version of the list it came from. */
 .member-table { table-layout: fixed; width: 100%; }
@@ -1157,6 +1189,17 @@ select.chip option { background: #0c0c0e; color: var(--text); }
 .net-swatch--mobile { background: color-mix(in srgb, var(--accent) 40%, #fff); }
 .net-value--wifi { color: var(--accent-bright); margin-top: 0.3rem; }
 .net-value--mobile { color: color-mix(in srgb, var(--accent) 40%, #fff); margin-top: 0.3rem; }
+
+/* The laptop's card splits by link rather than by Wi-Fi vs mobile: wired takes
+   the second shade, and a mobile-broadband modem or anything else a neutral
+   third, so the accent pair still reads as the main comparison. */
+.net-bar-fill--wired,
+.net-swatch--wired { background: color-mix(in srgb, var(--accent) 40%, #fff); }
+.net-bar-fill--wired { animation-delay: 120ms; }
+.net-value--wired { color: color-mix(in srgb, var(--accent) 40%, #fff); margin-top: 0.3rem; }
+.net-bar-fill--other,
+.net-swatch--other { background: var(--text-faint); }
+.net-value--other { color: var(--text-dim); margin-top: 0.3rem; }
 
 /* A paragraph of explanation inside a card, at the same measure as prose-list --
    i.e. the full width of the card. */

@@ -5,11 +5,13 @@ import { cache } from 'react';
 import { windowsTitle } from '@/lib/page-title';
 import {
   getAppDetail, getAppColorMap, getRowCount, appExists, databaseExists,
-  earnsDetailPage, windowsDeviceBySlug, type Scope,
+  earnsDetailPage, windowsDeviceBySlug, getWindowsAppNames, type Scope,
 } from '@/lib/queries';
 import { colorOf } from '@/lib/app-colors';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { AppIcon } from '@/components/AppIcon';
+import { BusiestHour } from '@/components/BusiestHour';
+import { RenameApp } from '@/components/RenameApp';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
 import { AppDailyChart, HourlyChart } from '@/components/Charts';
@@ -55,19 +57,18 @@ function Stat({
  * page share one read. Primitive arguments, because cache() compares them by
  * identity and a fresh Scope object would never hit.
  */
-const detailFor = cache((key: string, days: number, profileId: string | null) =>
-  getAppDetail(key, { days, profileId }));
+const detailFor = cache((key: string, days: number) => getAppDetail(key, { days }));
 
 export async function generateMetadata({
   params, searchParams,
 }: {
   params: Promise<{ device: string; key: string }>;
-  searchParams: Promise<{ days?: string; profile?: string }>;
+  searchParams: Promise<{ days?: string }>;
 }): Promise<Metadata> {
   const { device, key } = await params;
   if (!databaseExists()) return windowsTitle(device);
   const sp = await searchParams;
-  const app = detailFor(decodeURIComponent(key), parseDays(sp.days), sp.profile ?? null);
+  const app = detailFor(decodeURIComponent(key), parseDays(sp.days));
   return windowsTitle(device, app?.name ?? 'App');
 }
 
@@ -76,7 +77,7 @@ export default async function AppDetailPage({
   searchParams,
 }: {
   params: Promise<{ device: string; key: string }>;
-  searchParams: Promise<{ days?: string; profile?: string }>;
+  searchParams: Promise<{ days?: string }>;
 }) {
   if (!databaseExists()) return <EmptyState />;
 
@@ -85,11 +86,11 @@ export default async function AppDetailPage({
   if (!device) notFound();
   const base = `/windows/${device.slug}`;
   const sp = await searchParams;
-  const scope: Scope = { days: parseDays(sp.days), profileId: sp.profile ?? null };
+  const scope: Scope = { days: parseDays(sp.days) };
 
-  const app = detailFor(decodeURIComponent(key), scope.days, scope.profileId);
+  const app = detailFor(decodeURIComponent(key), scope.days);
   const colors = getAppColorMap();
-  const icons = getAppIconMap(device.slug);
+  const icons = getAppIconMap(device.slug, getWindowsAppNames().values());
 
   // An app with no rows in this scope is not a 404 -- the app exists, the
   // selection is just empty. Say which, rather than showing "not found" for a
@@ -103,7 +104,7 @@ export default async function AppDetailPage({
       <>
         <div className="page-head">
           <h1>Nothing in this range</h1>
-          <p>This app moved no data in the selected window or network.</p>
+          <p>This app moved no data in the selected range.</p>
         </div>
         <Link href={`${base}/apps`} className="chip">&larr; All apps</Link>
       </>
@@ -114,10 +115,6 @@ export default async function AppDetailPage({
   // bookmarked URL for a trivial app would otherwise render a page of one bar.
   if (!earnsDetailPage(app.totals.total, app.days)) notFound();
 
-  const busiest = app.hourly.reduce(
-    (best, h) => (h.total > best.total ? h : best),
-    { hour: 0, total: 0, sent: 0, received: 0 },
-  );
   const perDay = app.days > 0 ? app.totals.total / app.days : 0;
   const downShare = app.totals.total > 0 ? (app.totals.received / app.totals.total) * 100 : 0;
 
@@ -125,11 +122,17 @@ export default async function AppDetailPage({
     <>
       <div className="page-head">
         <Link href={`${base}/apps`} className="back-link">&larr; All apps</Link>
-        <h1 className="app-title">
-          <AppIcon name={app.name} color={colorOf(colors, app.name)} icons={icons} size="1.1em" />
-          {app.name}
-        </h1>
+        <RenameApp
+          variant="title" platform="windows" device={device.slug}
+          appKey={app.key} name={app.name} baseName={app.baseName}
+          icon={<AppIcon name={app.name} color={colorOf(colors, app.name)} icons={icons} size="1.1em" />}
+        />
         <p>
+          {app.name !== app.baseName && (
+            <span className="badge" style={{ marginRight: '0.6rem' }} title="Renamed in this dashboard">
+              was {app.baseName}
+            </span>
+          )}
           {app.kind !== 'path' && (
             <span className="badge" style={{ marginRight: '0.6rem' }}>
               {app.kind === 'appx' ? 'store app' : app.kind}
@@ -179,7 +182,10 @@ export default async function AppDetailPage({
       <div style={{ height: '1.15rem' }} />
 
       <Card delay={300} hover={false}>
-        <CardTitle sub={`Local time. Busiest hour is ${String(busiest.hour).padStart(2, '0')}:00.`}>
+        <CardTitle
+          sub="Local time, summed over the selected range"
+          aside={<BusiestHour data={app.hourly} />}
+        >
           Hour of day
         </CardTitle>
         <HourlyChart data={app.hourly} />

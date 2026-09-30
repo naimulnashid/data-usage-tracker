@@ -5,13 +5,15 @@ import { cache } from 'react';
 import { androidTitle } from '@/lib/page-title';
 import {
   getAndroidAppDetail, getAndroidAppColorMap, androidAppExists, androidReady,
-  earnsAndroidDetailPage, deviceBySlug, getSsidForUid,
+  earnsAndroidDetailPage, deviceBySlug, getSsidForUid, getAndroidAppNames,
 } from '@/lib/android-queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { colorOf } from '@/lib/app-colors';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
 import { AppIcon } from '@/components/AppIcon';
+import { BusiestHour } from '@/components/BusiestHour';
+import { RenameApp } from '@/components/RenameApp';
 import { AppDailyChart, HourlyChart } from '@/components/Charts';
 import { AndroidEmpty } from '@/components/AndroidEmpty';
 import { parseDays } from '@/lib/scope';
@@ -96,26 +98,28 @@ export default async function AndroidAppPage({
 
   const colors = getAndroidAppColorMap(device.deviceId);
   const ssids = getSsidForUid(device.deviceId, uid, days);
-  const icons = getAppIconMap(device.slug);
+  const icons = getAppIconMap(device.slug, getAndroidAppNames(device.deviceId).values());
   const color = colorOf(colors, app.name);
 
   const perDay = app.days > 0 ? app.totals.total / app.days : 0;
   const downShare = app.totals.total > 0 ? (app.totals.rx / app.totals.total) * 100 : 0;
-  const busiest = app.hourly.reduce(
-    (best, h) => (h.total > best.total ? h : best),
-    { hour: 0, total: 0, sent: 0, received: 0 },
-  );
   const netTotal = app.byNetwork.reduce((a, n) => a + n.total, 0);
 
   return (
     <>
       <div className="page-head">
         <Link href={`/android/${slug}/apps${scope}`} className="back-link">&larr; All apps on this phone</Link>
-        <h1 className="app-title">
-          <AppIcon name={app.name} color={color} icons={icons} size="1.1em" />
-          {app.name}
-        </h1>
+        <RenameApp
+          variant="title" platform="android" device={device.slug}
+          appKey={String(app.uid)} name={app.name} baseName={app.baseName}
+          icon={<AppIcon name={app.name} color={color} icons={icons} size="1.1em" />}
+        />
         <p>
+          {app.name !== app.baseName && (
+            <span className="badge" style={{ marginRight: '0.6rem' }} title="Renamed in this dashboard">
+              was {app.baseName}
+            </span>
+          )}
           <span className="badge" style={{ marginRight: '0.6rem' }}>uid {app.uid}</span>
           {app.profile > 0 && (
             <span className="badge" style={{ marginRight: '0.6rem' }}>user profile {app.profile}</span>
@@ -164,11 +168,8 @@ export default async function AndroidAppPage({
 
       <Card delay={300} hover={false}>
         <CardTitle
-          sub={
-            `Local time on the phone. Android buckets 2-hourly, so each bar is a two-hour `
-            + `block; the busiest is ${String(busiest.hour).padStart(2, '0')}:00-`
-            + `${String((busiest.hour + 2) % 24).padStart(2, '0')}:00.`
-          }
+          sub="Local time on the phone, in Android's two-hour buckets"
+          aside={<BusiestHour data={app.hourly} span={2} />}
         >
           Hour of day
         </CardTitle>

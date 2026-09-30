@@ -3,7 +3,6 @@
 import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { deviceOf } from '@/lib/accent';
-import type { ProfileOption } from '@/lib/queries';
 import { Sidebar, type SidebarDevice } from './Sidebar';
 import { Nav } from './Nav';
 import { ScopeBar } from './ScopeBar';
@@ -21,15 +20,13 @@ import { Footer } from './Footer';
  *   is a CSS variable defined in `accent.ts`, so this one attribute repaints
  *   buttons, active tabs, focus rings, chart strokes and the heat-map ramp.
  * - **Which controls apply.** The page tabs come from the active device, and
- *   the network scope selector and the Sync button
- *   drive the Windows collector. On the Android pages they would be controls
+ *   the Sync button drives the Windows collector. On the Android pages they would be controls
  *   for a machine you are not looking at, so they are not rendered at all
  *   rather than rendered inert.
  */
 export function Shell({
-  profiles, phones, laptop, children,
+  phones, laptop, children,
 }: {
-  profiles: ProfileOption[];
   /** The laptop, as a slug and a label. From config; there is only ever one. */
   laptop: SidebarDevice;
   /** Android devices that have reported, for the sidebar. */
@@ -54,15 +51,13 @@ export function Shell({
                 the phone pushes on its own schedule and there is nothing here
                 to trigger. */}
             {isWindows && <SyncButton />}
-            {/* The range chips apply to both devices. The network selector
-                inside ScopeBar hides itself when there is nothing to pick, so
-                passing an empty list on Android leaves exactly the chips.
+            {/* The range chips apply to both devices.
 
                 ScopeBar reads useSearchParams, which opts any page containing
                 it out of static prerendering. Without this boundary the
                 built-in /_not-found page fails to prerender. */}
             <Suspense fallback={null}>
-              <ScopeBar profiles={isWindows ? profiles : []} />
+              <ScopeBar />
             </Suspense>
             <SignOutButton />
           </div>

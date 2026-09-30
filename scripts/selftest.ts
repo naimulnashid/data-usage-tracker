@@ -29,7 +29,7 @@ import {
   coveredDays, daySpanLabel, eachDay, fillDays, fillHours, isKnown,
 } from '../src/lib/days.js';
 import {
-  recentBlock, hasOlderThanRecent, expandedBlocks, blockLabel,
+  recentBlock, expandedBlocks, blockLabel,
 } from '../src/lib/heatmap.js';
 import { safeNextPath } from '../src/lib/safe-redirect.js';
 import { byNamingOrder } from '../src/lib/android-names.js';
@@ -387,8 +387,8 @@ function dayChecks(): void {
 
 /**
  * `lib/heatmap.ts` lays out the overview's six months and the expanded page's
- * stacked blocks. The Expand button's whole condition is `hasOlderThanRecent`,
- * and no real device has six months yet, so this is where it is proven.
+ * stacked blocks. No real device has six months yet, so this is where the
+ * layout is proven.
  */
 function heatmapChecks(): void {
   console.log('\n== heat map ==');
@@ -397,11 +397,6 @@ function heatmapChecks(): void {
   const recent = recentBlock([], today);
   check('the recent block opens on the Saturday 25 weeks before this one',
     recent.first === '2026-03-28', recent.first);
-
-  check('no Expand for data the card already shows',
-    !hasOlderThanRecent('2026-03-28', today) && !hasOlderThanRecent(null, today));
-  check('Expand once data is older than the card reaches',
-    hasOlderThanRecent('2026-03-27', today));
 
   const blocks = expandedBlocks([{ date: '2026-07-22', total: 5 }], '2026-07-22', today);
   check('the expanded page starts on 1 January 2026, six months to a block',

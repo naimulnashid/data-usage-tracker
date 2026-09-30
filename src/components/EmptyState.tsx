@@ -44,18 +44,16 @@ export function EmptyState() {
  * device sits under its own slug, a fixed path would have bounced the reader
  * onto a different machine than the one whose empty range they were looking at.
  */
-export function NoDataInScope({ scoped, home }: { scoped: boolean; home: string }) {
+export function NoDataInScope({ home }: { home: string }) {
   return (
     <div className="empty">
       <h1 style={{ marginBottom: '0.8rem' }}>Nothing in this range</h1>
       <p style={{ maxWidth: 560, margin: '0 auto 1.6rem' }}>
-        There is usage history stored, but none matching the current selection
-        {scoped ? ' on this network' : ''}. Try a longer range
-        {scoped ? ', or switch to All networks' : ''}.
+        There is usage history stored, but none in the selected range. Try a
+        longer one.
       </p>
       {/* ALL_DAYS, not the 365 this used to carry: the button promises
-          everything, and a year is not that. `home` is the bare device path,
-          so the network filter is dropped too. */}
+          everything, and a year is not that. */}
       <Link href={`${home}?days=${ALL_DAYS}`} className="chip" style={{ display: 'inline-block' }}>
         Show everything
       </Link>

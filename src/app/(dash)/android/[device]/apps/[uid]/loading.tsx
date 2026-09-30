@@ -9,7 +9,8 @@ import {
  *   page head    107 / 117 -> 111  (carries a back link, hence backLink)
  *   score grid   338 / 147
  *   Daily usage  491 / 426 -> 458
- *   Hour of day  371 / 346 -> 358
+ *   Hour of day  387 / 387 -> 387 (2026-09-30: legend, and a sub short
+ *                                  enough to stay one line beside the callout)
  *   By network   888 / 888 -> 888  (median; 480 to 1010)
  *   Package      224 / 224 -> 224  (median)
  *
@@ -31,7 +32,7 @@ export default function Loading() {
       <SkeletonStatGrid columns={4} valueHeight={51} />
       <SkeletonCard contentHeight={332} />
       <SkeletonGap />
-      <SkeletonCard contentHeight={232} />
+      <SkeletonCard contentHeight={260} />
       <SkeletonGap />
       <SkeletonCard contentHeight={761} />
       <SkeletonGap />

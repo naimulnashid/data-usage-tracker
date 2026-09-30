@@ -3,7 +3,8 @@ import { windowsTitle } from '@/lib/page-title';
 import { notFound } from 'next/navigation';
 import {
   getOverview, getSync, getHeatmap, getTimeline, getAppColorMap, getRowCount,
-  windowsDeviceBySlug, databaseExists, type Scope, type Totals,
+  getNetworkBreakdown, getWindowsAppNames, windowsDeviceBySlug, databaseExists,
+  type LinkKind, type Scope, type Totals,
 } from '@/lib/queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
@@ -11,6 +12,7 @@ import { CountUp } from '@/components/CountUp';
 import { DailyTrendChart, StackedTimelineChart, HourlyChart } from '@/components/Charts';
 import { ChartLegend } from '@/components/ChartLegend';
 import { SplitBar } from '@/components/SplitBar';
+import { BusiestHour } from '@/components/BusiestHour';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { EmptyState, NoDataInScope } from '@/components/EmptyState';
 import { parseDays, scopeQuery } from '@/lib/scope';
@@ -59,6 +61,13 @@ function StatCard({
   );
 }
 
+const LINK_LABEL: Record<LinkKind, string> = {
+  wifi: 'Wi-Fi',
+  wired: 'Wired',
+  mobile: 'Mobile broadband',
+  other: 'Other',
+};
+
 export async function generateMetadata({
   params,
 }: {
@@ -72,7 +81,7 @@ export default async function OverviewPage({
   params, searchParams,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string; profile?: string }>;
+  searchParams: Promise<{ days?: string }>;
 }) {
   if (!databaseExists()) return <EmptyState />;
 
@@ -84,23 +93,21 @@ export default async function OverviewPage({
   const base = `/windows/${device.slug}`;
 
   const sp = await searchParams;
-  const scope: Scope = {
-    days: parseDays(sp.days),
-    profileId: sp.profile ?? null,
-  };
+  const scope: Scope = { days: parseDays(sp.days) };
 
   const data = getOverview(scope);
-  const heatmap = getHeatmap(scope.profileId);
+  const heatmap = getHeatmap();
   const timeline = getTimeline(scope);
+  const networks = getNetworkBreakdown(scope);
   const sync = getSync(1);
   const colors = getAppColorMap();
-  const icons = getAppIconMap(device.slug);
+  const icons = getAppIconMap(device.slug, getWindowsAppNames().values());
 
   if (!data.latestDate) {
     // Distinguish an empty database from an empty selection.
     return getRowCount() === 0
       ? <EmptyState />
-      : <NoDataInScope scoped={scope.profileId !== null} home={base} />;
+      : <NoDataInScope home={base} />;
   }
 
   const todayIso = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local
@@ -124,10 +131,10 @@ export default async function OverviewPage({
     ? `${formatDayShort(data.coverage.first)} – ${formatDayShort(data.coverage.last)} · ${data.coverage.days} days`
     : undefined;
 
-  const busiest = timeline.hourly.reduce(
-    (best, h) => (h.total > best.total ? h : best),
-    { hour: 0, total: 0 },
-  );
+  // Wi-Fi and wired always; mobile broadband and "other" only when present,
+  // since a laptop without a WWAN modem would otherwise carry a permanent 0 B.
+  const kinds = networks.byKind.filter((k) => k.kind === 'wifi' || k.kind === 'wired' || k.total > 0);
+  const pctOf = (b: number) => (networks.total ? (b / networks.total) * 100 : 0);
 
   return (
     <>
@@ -184,7 +191,6 @@ export default async function OverviewPage({
         </CardTitle>
         <ActivityHeatmap
           daily={heatmap}
-          earliest={data.coverage?.first ?? null}
           expandHref={`${base}/activity${scopeQuery(sp)}`}
         />
       </Card>
@@ -202,7 +208,10 @@ export default async function OverviewPage({
       <div style={{ height: '1.15rem' }} />
 
       <Card delay={420} hover={false}>
-        <CardTitle sub={`Local time. Busiest hour is ${String(busiest.hour).padStart(2, '0')}:00.`}>
+        <CardTitle
+          sub="Local time, summed over the selected range"
+          aside={<BusiestHour data={timeline.hourly} />}
+        >
           Hour of day
         </CardTitle>
         <HourlyChart data={timeline.hourly} />
@@ -227,6 +236,90 @@ export default async function OverviewPage({
           </Card>
         </>
       )}
+
+      <div style={{ height: '1.15rem' }} />
+
+      {/*
+        The phone overview's card, for the laptop. It replaced the top bar's
+        network selector (2026-09-30), which scoped every number on every page
+        to one network: this answers "how much on which network" in one place
+        while the totals above stay whole. Aggregate rows throughout, so the
+        rows add up to the headline figures.
+      */}
+      <Card delay={540} hover={false}>
+        <CardTitle sub="Wi-Fi against wired, and which network, over the selected range">
+          Where it went
+        </CardTitle>
+        <div className="net-split">
+          <div className="net-bar">
+            {kinds.map((k) => (
+              <div
+                key={k.kind}
+                className={`net-bar-fill net-bar-fill--${k.kind}`}
+                style={{ width: `${pctOf(k.total)}%` }}
+                title={`${LINK_LABEL[k.kind]} — ${formatBytes(k.total)}`}
+              />
+            ))}
+          </div>
+          <div className={`grid grid--${Math.min(kinds.length, 4)}`} style={{ marginTop: '1.4rem' }}>
+            {kinds.map((k) => (
+              <div key={k.kind}>
+                <div className="legend-item"><span className={`legend-swatch net-swatch--${k.kind}`} />{LINK_LABEL[k.kind]}</div>
+                <div className={`stat-value net-value--${k.kind}`}>{formatBytes(k.total)}</div>
+                <div className="stat-sub">{formatPercent(pctOf(k.total))} of all traffic</div>
+              </div>
+            ))}
+          </div>
+
+          {networks.networks.length > 0 && (
+            <div className="ssid-block">
+              <div className="ssid-head">
+                <span>Networks</span>
+                <span className="ssid-note">
+                  {networks.networks.length} {networks.networks.length === 1 ? 'network' : 'networks'}
+                </span>
+              </div>
+              <table className="ssid-table">
+                <tbody>
+                  {networks.networks.map((n) => (
+                    <tr key={n.id}>
+                      <td
+                        className={`ssid-name${n.named ? '' : ' ssid-name--dim'}`}
+                        title={n.aliases.length ? `${n.label} - also seen as ${n.aliases.join(', ')}` : n.label}
+                      >
+                        {n.named || n.id === '0' ? n.label : `${n.label}, unnamed`}
+                        {n.aliases.length > 0 && <span className="ssid-note"> +{n.aliases.length}</span>}
+                      </td>
+                      <td className="num">{formatBytes(n.total)}</td>
+                      <td style={{ width: '45%' }}>
+                        <div className="bar-track">
+                          <div
+                            className="bar-fill"
+                            style={{
+                              width: `${pctOf(n.total)}%`,
+                              background: n.named ? 'var(--accent)' : 'var(--text-faint)',
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="ssid-note ssid-note--block">
+                {/*
+                  Windows' own page is scoped to one network profile, so an
+                  all-networks total legitimately reads higher. Say so here, where the per-network rows make it
+                  checkable, or the gap reads as a bug.
+                */}
+                Windows&rsquo; own Data usage page shows one network at a time, so its figure
+                matches one row here rather than the total. Names are learned by watching which
+                network the laptop is on; an unnamed one fills in the next time it is seen.
+              </p>
+            </div>
+          )}
+        </div>
+      </Card>
     </>
   );
 }
