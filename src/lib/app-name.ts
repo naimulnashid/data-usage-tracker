@@ -80,6 +80,7 @@ const KNOWN_EXE_NAMES: Record<string, string> = {
   'language_server.exe': 'Antigravity Language Server',
   'perplexity ai.exe': 'Perplexity',
   'kimi.exe': 'Kimi',
+  'minimax code.exe': 'MiniMax Code',
   'mscopilot.exe': 'Microsoft Copilot',
   'wispr flow.exe': 'Wispr Flow',
 
@@ -99,6 +100,7 @@ const KNOWN_EXE_NAMES: Record<string, string> = {
   'github.exe': 'GitHub Copilot',
   'githubdesktop.exe': 'GitHub Desktop',
   'gk.exe': 'GitKraken',
+  'dotnet.exe': '.NET',
   'cargo.exe': 'Cargo',
   'rustup-init.exe': 'Rustup',
   'uv.exe': 'uv',
@@ -120,6 +122,8 @@ const KNOWN_EXE_NAMES: Record<string, string> = {
   'bitwarden.exe': 'Bitwarden',
   'powertoys.exe': 'PowerToys',
   'music-vault.exe': 'Music Vault',
+  'vlc.exe': 'VLC',
+  'insta360 studio.exe': 'Insta360 Studio',
 
   // Microsoft Office / OneDrive
   'winword.exe': 'Word',

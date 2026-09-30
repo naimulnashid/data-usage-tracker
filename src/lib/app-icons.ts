@@ -67,6 +67,8 @@ export const LOGO_ROOT = ['public', 'apps_logo'] as const;
 export const ICON_ALIASES: Record<string, string> = {
   // File name differs from the app name
   'ChatGPT': 'ChatGPT Green',
+  // A leading dot cannot start a file name that is also the app's name.
+  '.NET': 'dotnet',
   'Microsoft Office': 'Office',
   'Microsoft Teams': 'Teams',
   'Google Updater': 'Google',
