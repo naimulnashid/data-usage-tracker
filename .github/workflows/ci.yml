@@ -72,4 +72,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      # A checkout may carry a machine's own local.properties: its SDK path and
+      # a signing.properties line pointing at a key on that machine's drive.
+      # Neither exists on a runner, and the build rightly refuses a named key
+      # it cannot find. CI builds debug, which signs with nothing of ours.
+      - run: rm -f local.properties
       - run: ./gradlew --no-daemon assembleDebug

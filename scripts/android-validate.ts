@@ -134,13 +134,6 @@ const RETENTION_KEYS = [
 /* Parsing the measured format                                         */
 /* ------------------------------------------------------------------ */
 
-/** Android's ConnectivityManager transport constants, as they appear in ident. */
-const TRANSPORT: Record<string, string> = {
-  '0': 'CELLULAR', '1': 'WIFI', '2': 'BLUETOOTH', '3': 'ETHERNET', '4': 'VPN',
-  '5': 'WIFI_AWARE', '6': 'LOWPAN', '7': 'TEST', '8': 'USB', '9': 'THREAD',
-  '10': 'SATELLITE',
-};
-
 interface Bucket {
   uid: number;
   set: string;
