@@ -27,11 +27,10 @@
     THE DEPLOY ROOT IS OFF THE SYSTEM DRIVE (since 3.2.1)
     -----------------------------------------------------
 
-    The snapshot lands in <DeployRoot>\work: ~99 MB, every hour. On C:,
-    beside System Restore's shadow copies, that churn is the likeliest cause
-    of Fast Startup shutdowns that stalled for up to two minutes with the
-    screen off, each logging Volsnap event 25 (shadow storage could not grow
-    in time). So -DeployRoot defaults to DataUsageTracker-snapshot at the root
+    The snapshot lands in <DeployRoot>\work: ~99 MB, every hour, about 2.4 GB
+    a day written and replaced on whichever drive holds it. The system drive
+    is often the smallest and fullest, and carries System Restore's shadow
+    copies, so it is the worst place for that. So -DeployRoot defaults to DataUsageTracker-snapshot at the root
     of the database's drive when that drive is NTFS (the ACL below needs it),
     and to %ProgramData%\DataUsageTracker otherwise. The task's working
     directory is the deploy root, and that is how the collector finds it.

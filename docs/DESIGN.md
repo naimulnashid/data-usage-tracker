@@ -211,9 +211,9 @@ the user.
 
 The deploy root is `DataUsageTracker-snapshot` at the root of the database's
 drive when that drive is NTFS, else `%ProgramData%\DataUsageTracker`. It holds
-the hourly ~99 MB snapshot between runs, and on the system drive that churn
-feeds System Restore's shadow copies until a Fast Startup shutdown stalls on
-them. The snapshot task's working directory is the deploy root; the collector
+the hourly ~99 MB snapshot between runs, about 2.4 GB a day of writes that
+the system drive, often the smallest and fullest, is better off without. The
+snapshot task's working directory is the deploy root; the collector
 reads it from there.
 
 | Task | Runs | Elevated | Trigger |

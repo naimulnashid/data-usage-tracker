@@ -184,9 +184,9 @@ This registers two tasks and runs a first collection:
 That folder also holds the ~99 MB snapshot between runs, so it is
 `DataUsageTracker-snapshot` at the root of your database's drive, not on C:
 (`-DeployRoot` picks another; it falls back to `%ProgramData%\DataUsageTracker`
-when that drive is not NTFS). An hourly 99 MB copy on the system drive grows
-System Restore's shadow copies, and a Fast Startup shutdown can then stall
-for a minute or two with the screen off and the fans running.
+when that drive is not NTFS). An hourly 99 MB copy is about 2.4 GB a day of
+writes, which the system drive, often the smallest and fullest, is better
+off without.
 
 It also writes both task definitions to `scripts\task\` as a record. They
 contain your Windows account ID and paths, so they are git-ignored; keep them
