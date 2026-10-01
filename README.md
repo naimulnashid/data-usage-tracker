@@ -1,5 +1,9 @@
 # Data Usage Tracker
 
+[![CI](https://github.com/naimulnashid/data-usage-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/data-usage-tracker/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/naimulnashid/data-usage-tracker)](https://github.com/naimulnashid/data-usage-tracker/releases/latest)
+[![MIT license](https://img.shields.io/github/license/naimulnashid/data-usage-tracker)](LICENSE)
+
 A local dashboard that makes per-app network usage history **permanent**, for a
 Windows PC and, optionally, Android phones.
 
