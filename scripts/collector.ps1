@@ -107,11 +107,12 @@ $script:nodeExe = $null
 $script:ingestScript = Join-Path $root 'scripts\ingest.ts'
 
 # The elevated half. register-task.ps1 creates the task and deploys the
-# scripts it runs; these names must match what it uses.
+# scripts it runs; these names must match what it uses. The deploy root is
+# read from the task at the start of the run (Get-SnapshotDeployRoot).
 $snapshotTask = 'Data Usage Snapshot'
-$deployRoot   = Join-Path $env:ProgramData 'DataUsageTracker'
-$snapWorkDir  = Join-Path $deployRoot 'work'
-$snapStatus   = Join-Path $deployRoot 'status.json'
+$deployRoot   = $null
+$snapWorkDir  = $null
+$snapStatus   = $null
 
 # Soft recovery for the snapshot. Not optional -- SrumECmd refuses a dirty
 # database outright. Runs unelevated, here, in scratch. See srum-recover.ps1.
@@ -196,6 +197,22 @@ function Invoke-Native {
     [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $out }
 }
 
+# Where the snapshot task deploys and writes: its working directory, which
+# register-task.ps1 sets to the deploy root (since 3.2.1 on the database's
+# drive, not C:). The path an administrator approved is the only record of
+# it. schtasks for the same reason as below; %ProgramData%\DataUsageTracker,
+# the old fixed location, when the task cannot be read.
+function Get-SnapshotDeployRoot {
+    $q = Invoke-Native schtasks.exe @('/query', '/tn', $snapshotTask, '/xml')
+    if ($q.ExitCode -eq 0) {
+        try {
+            $dir = ([xml]($q.Output -join "`n")).Task.Actions.Exec.WorkingDirectory
+            if ($dir) { return $dir.Trim() }
+        } catch { }
+    }
+    return (Join-Path $env:ProgramData 'DataUsageTracker')
+}
+
 # ConvertFrom-Json in Windows PowerShell 5.1 leaves ISO dates as strings;
 # PowerShell 7 hands back a DateTime. Take either, or a run started by hand in
 # pwsh would compare local time against UTC and never see its snapshot.
@@ -243,11 +260,15 @@ try {
     }
     Write-Log "SrumECmd: $srumECmd"
 
+    $deployRoot  = Get-SnapshotDeployRoot
+    $snapWorkDir = Join-Path $deployRoot 'work'
+    $snapStatus  = Join-Path $deployRoot 'status.json'
+
     # Scratch. Holds a full copy of the usage history mid-run, so it lives on
     # the persistent drive rather than a synced folder, and is wiped afterwards.
     Assert-SafeScratch -Dir $scratchDir -Protected @(
         $dbPath, $cfg.backupPath, $root, $env:USERPROFILE, $env:SystemRoot,
-        $env:ProgramFiles, $env:ProgramData)
+        $env:ProgramFiles, $env:ProgramData, $deployRoot)
     if (Test-Path -LiteralPath $scratchDir) { Remove-Item -LiteralPath $scratchDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $scratchDir | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $scratchDir $scratchMarker),
@@ -307,7 +328,7 @@ try {
         if ($ranSince -and $task.State -ne 'Running') {
             if (-not $idleSince) { $idleSince = Get-Date }
             elseif (((Get-Date) - $idleSince).TotalSeconds -gt 10) {
-                throw "'$snapshotTask' finished (result $($info.LastTaskResult)) without reporting a status. Check that %ProgramData%\DataUsageTracker is intact, or re-run scripts\register-task.ps1."
+                throw "'$snapshotTask' finished (result $($info.LastTaskResult)) without reporting a status. Check that $deployRoot is intact, or re-run scripts\register-task.ps1."
             }
         }
     }

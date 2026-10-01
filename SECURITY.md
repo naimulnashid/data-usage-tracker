@@ -21,7 +21,9 @@ This is a local tool, so the interesting boundaries are local ones:
   `DASHBOARD_HOST` set it is reachable on the local network over plain HTTP,
   which is a documented trade-off, not a vulnerability in itself.
 - **The privilege split.** Only `scripts/srum-snapshot.ps1` runs as
-  Administrator, from `%ProgramData%\DataUsageTracker`. Any way for a
+  Administrator, from the admin-only folder registration creates
+  (`DataUsageTracker-snapshot` on the database's drive, or
+  `%ProgramData%\DataUsageTracker`). Any way for a
   non-administrator to make code of their choosing run in that task, or to
   steer its writes elsewhere, is in scope.
 - **The phone ingest endpoint** (`/api/android/ingest`), authenticated by a

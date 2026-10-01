@@ -178,8 +178,15 @@ This registers two tasks and runs a first collection:
 - **Data Usage Snapshot**: elevated, on demand, and started only by the
   collector. It takes the shadow copy of the locked SRUM database and nothing
   else. It runs a copy of `scripts\srum-snapshot.ps1` that registration places in
-  `%ProgramData%\DataUsageTracker`, where only administrators can write, never
-  the repo's copy. **After editing that script, re-run this command.**
+  a folder only administrators can write, never the repo's copy. **After
+  editing that script, re-run this command.**
+
+That folder also holds the ~99 MB snapshot between runs, so it is
+`DataUsageTracker-snapshot` at the root of your database's drive, not on C:
+(`-DeployRoot` picks another; it falls back to `%ProgramData%\DataUsageTracker`
+when that drive is not NTFS). An hourly 99 MB copy on the system drive grows
+System Restore's shadow copies, and a Fast Startup shutdown can then stall
+for a minute or two with the screen off and the fans running.
 
 It also writes both task definitions to `scripts\task\` as a record. They
 contain your Windows account ID and paths, so they are git-ignored; keep them

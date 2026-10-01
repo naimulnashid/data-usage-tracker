@@ -1,11 +1,14 @@
 <#
     The only code in this project that runs as Administrator. It does one thing:
 
-        esentutl /y SRUDB.dat /vss  ->  %ProgramData%\DataUsageTracker\work
+        esentutl /y SRUDB.dat /vss  ->  <deploy root>\work
 
     It is run by the "Data Usage Snapshot" scheduled task, from a copy that
-    register-task.ps1 places in %ProgramData%\DataUsageTracker\bin -- NOT from
-    the repo. That placement is the point of the file.
+    register-task.ps1 places in <deploy root>\bin -- NOT from the repo. That
+    placement is the point of the file. The deploy root is
+    DataUsageTracker-snapshot on the database's drive, or
+    %ProgramData%\DataUsageTracker; this script only ever finds it as its own
+    parent directory.
 
     WHY THIS IS SEPARATE
     --------------------
@@ -28,7 +31,7 @@
 
     What this script touches, and nothing else:
       - reads    the live SRUM database (a system path)
-      - writes   %ProgramData%\DataUsageTracker\work and status.json, which only
+      - writes   <deploy root>\work and status.json, which only
                  Administrators can write and the registering user can read
       - runs     esentutl.exe and cmd.exe from System32
     It reads no config file, loads nothing outside its own directory, and

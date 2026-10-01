@@ -18,11 +18,23 @@
                              a VSS copy of SRUDB.dat.
 
     The snapshot task runs a COPY of srum-snapshot.ps1 that this script deploys
-    into %ProgramData%\DataUsageTracker\bin, a directory only Administrators
-    can write. It must not run the repo's copy: the repo is writable without
-    elevation, and an elevated task running a file the user can edit is a
-    free path to Administrator. That is exactly how the collector used to be
-    set up. See the header of srum-snapshot.ps1.
+    into <DeployRoot>\bin, a directory only Administrators can write. It must
+    not run the repo's copy: the repo is writable without elevation, and an
+    elevated task running a file the user can edit is a free path to
+    Administrator. That is exactly how the collector used to be set up. See
+    the header of srum-snapshot.ps1.
+
+    THE DEPLOY ROOT IS OFF THE SYSTEM DRIVE (since 3.2.1)
+    -----------------------------------------------------
+
+    The snapshot lands in <DeployRoot>\work: ~99 MB, every hour. On C:,
+    beside System Restore's shadow copies, that churn is the likeliest cause
+    of Fast Startup shutdowns that stalled for up to two minutes with the
+    screen off, each logging Volsnap event 25 (shadow storage could not grow
+    in time). So -DeployRoot defaults to DataUsageTracker-snapshot at the root
+    of the database's drive when that drive is NTFS (the ACL below needs it),
+    and to %ProgramData%\DataUsageTracker otherwise. The task's working
+    directory is the deploy root, and that is how the collector finds it.
 
     So after changing srum-snapshot.ps1 or protected-dir.ps1, re-run this to
     deploy them. The collector warns in its log when the deployed copy has
@@ -39,6 +51,8 @@ param(
     [string]$SnapshotTaskName = 'Data Usage Snapshot',
     [ValidateRange(1, 24)]
     [int]$EveryHours          = 1,
+    # Where the elevated script and its snapshot live. Default: see above.
+    [string]$DeployRoot,
     [switch]$RunNow,
     [switch]$Unregister
 )
@@ -67,10 +81,22 @@ if (-not $scriptDir) { throw "Cannot determine script location. Run this by full
 $root       = (Resolve-Path (Join-Path $scriptDir '..')).Path
 $collector  = Join-Path $root 'scripts\collector.ps1'
 $taskDir    = Join-Path $root 'scripts\task'
-$deployRoot = Join-Path $env:ProgramData 'DataUsageTracker'
-$binDir     = Join-Path $deployRoot 'bin'
+$cfgPath    = Join-Path $root 'config\collector.json'
+$cfg        = if (Test-Path $cfgPath) { Get-Content $cfgPath -Raw | ConvertFrom-Json } else { $null }
 $deployed   = @('srum-snapshot.ps1', 'protected-dir.ps1')
 $psExe      = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$admins     = [Security.Principal.SecurityIdentifier]'S-1-5-32-544'
+
+if (-not $DeployRoot) {
+    $DeployRoot = Join-Path $env:ProgramData 'DataUsageTracker'
+    $dbRoot = if ($cfg -and $cfg.databasePath) { [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($cfg.databasePath)) } else { $null }
+    if ($dbRoot -and $dbRoot -ine [IO.Path]::GetPathRoot($env:SystemRoot) -and (Test-Path -LiteralPath $dbRoot) -and
+        ([IO.DriveInfo]::new($dbRoot)).DriveFormat -eq 'NTFS') {
+        $DeployRoot = Join-Path $dbRoot 'DataUsageTracker-snapshot'
+    }
+}
+$deployRoot = [IO.Path]::GetFullPath($DeployRoot)
+$binDir     = Join-Path $deployRoot 'bin'
 
 # The user both tasks run as: whoever is signed in, not the admin account
 # that elevated this shell. S4U, so no password is stored.
@@ -78,16 +104,29 @@ $userSid = (New-Object Security.Principal.NTAccount($env:USERDOMAIN, $env:USERNA
     [Security.Principal.SecurityIdentifier]).Value
 
 # `rd /s` removes a junction rather than descending through it.
-function Remove-DeployRoot {
-    if (Test-Path -LiteralPath $deployRoot) {
-        & cmd.exe /d /c rd /s /q $deployRoot | Out-Null
-        if (Test-Path -LiteralPath $deployRoot) {
-            throw "Could not remove $deployRoot. Delete it by hand from an Administrator prompt and re-run."
+function Remove-DeployRoot([string]$Dir) {
+    if (Test-Path -LiteralPath $Dir) {
+        & cmd.exe /d /c rd /s /q $Dir | Out-Null
+        if (Test-Path -LiteralPath $Dir) {
+            throw "Could not remove $Dir. Delete it by hand from an Administrator prompt and re-run."
         }
     }
 }
 
+# The deploy root the current registration uses: the snapshot task's working
+# directory, wherever -DeployRoot pointed last time. Only a folder that
+# Administrators own is returned, so a task definition never talks this
+# script into deleting a folder it did not make.
+function Get-RegisteredDeployRoot {
+    $task = Get-ScheduledTask -TaskName $SnapshotTaskName -ErrorAction SilentlyContinue
+    $dir = if ($task) { $task.Actions | Select-Object -First 1 -ExpandProperty WorkingDirectory } else { $null }
+    if (-not $dir -or -not (Test-Path -LiteralPath $dir)) { return $null }
+    if ((Get-Acl -LiteralPath $dir).GetOwner([Security.Principal.SecurityIdentifier]) -ne $admins) { return $null }
+    return [IO.Path]::GetFullPath($dir)
+}
+
 if ($Unregister) {
+    $registered = Get-RegisteredDeployRoot
     foreach ($name in @($TaskName, $SnapshotTaskName)) {
         if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
             Unregister-ScheduledTask -TaskName $name -Confirm:$false
@@ -96,12 +135,21 @@ if ($Unregister) {
             Write-Host "No task named '$name'." -ForegroundColor Yellow
         }
     }
-    Remove-DeployRoot
-    Write-Host "Removed $deployRoot." -ForegroundColor Green
+    foreach ($dir in @($deployRoot, $registered) | Where-Object { $_ } | Select-Object -Unique) {
+        Remove-DeployRoot $dir
+        Write-Host "Removed $dir." -ForegroundColor Green
+    }
     exit 0
 }
 
 if (-not (Test-Path $collector)) { throw "collector.ps1 not found at $collector" }
+
+# Moving the deploy root removes the old one, snapshot and all.
+$previous = Get-RegisteredDeployRoot
+if ($previous -and $previous -ine $deployRoot) {
+    Remove-DeployRoot $previous
+    Write-Host "Removed the previous $previous" -ForegroundColor Green
+}
 
 # ---------------------------------------------------------------------------
 # 1. Deploy the elevated scripts into an admin-only directory
@@ -109,11 +157,11 @@ if (-not (Test-Path $collector)) { throw "collector.ps1 not found at $collector"
 #
 # Rebuilt from nothing every time rather than patched. The directory is
 # created WITH its security descriptor, in one call, so there is no moment at
-# which it exists with the permissive ACL %ProgramData% hands down (Users may
-# create files in subfolders there). If something else created it first, in
-# the gap after the delete, it will not have our owner and the check below
-# fails -- which is the right outcome.
-Remove-DeployRoot
+# which it exists with the permissive ACL its parent hands down (Users may
+# create files in %ProgramData%'s subfolders, and folders at a drive root). If
+# something else created it first, in the gap after the delete, it will not
+# have our owner and the check below fails -- which is the right outcome.
+Remove-DeployRoot $deployRoot
 
 $security = New-Object System.Security.AccessControl.DirectorySecurity
 $security.SetAccessRuleProtection($true, $false)
@@ -157,9 +205,8 @@ $snapArgs = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$binDir\
 # The live database path is baked in here, at registration, which an
 # Administrator approves -- never read by the task from the user-writable
 # config at run time.
-$cfgPath = Join-Path $root 'config\collector.json'
-if (Test-Path $cfgPath) {
-    $cfgSrum = (Get-Content $cfgPath -Raw | ConvertFrom-Json).srumPath
+if ($cfg) {
+    $cfgSrum = $cfg.srumPath
     $defaultSrum = Join-Path $env:SystemRoot 'System32\sru\SRUDB.dat'
     if ($cfgSrum -and $cfgSrum -ne $defaultSrum) { $snapArgs += " -SrumPath `"$cfgSrum`"" }
 }
@@ -170,7 +217,7 @@ Register-ScheduledTask `
     -Principal (New-ScheduledTaskPrincipal -UserId $userSid -LogonType S4U -RunLevel Highest) `
     -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
         -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30)) `
-    -Description 'VSS-copies the Windows SRUM database for the Data Usage Collector. The only elevated step; runs an admin-owned script from %ProgramData%\DataUsageTracker.' `
+    -Description 'VSS-copies the Windows SRUM database for the Data Usage Collector. The only elevated step; runs an admin-owned script from its working directory.' `
     -Force | Out-Null
 Write-Host "Registered '$SnapshotTaskName' - on demand, highest privileges." -ForegroundColor Green
 

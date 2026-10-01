@@ -206,8 +206,15 @@ of one bar.
 ## The privilege split
 
 Only `scripts/srum-snapshot.ps1` runs as Administrator, and only from a copy in
-`%ProgramData%\DataUsageTracker\bin` that `register-task.ps1` deploys.
-Everything else runs as the user.
+`<deploy root>\bin` that `register-task.ps1` deploys. Everything else runs as
+the user.
+
+The deploy root is `DataUsageTracker-snapshot` at the root of the database's
+drive when that drive is NTFS, else `%ProgramData%\DataUsageTracker`. It holds
+the hourly ~99 MB snapshot between runs, and on the system drive that churn
+feeds System Restore's shadow copies until a Fast Startup shutdown stalls on
+them. The snapshot task's working directory is the deploy root; the collector
+reads it from there.
 
 | Task | Runs | Elevated | Trigger |
 |---|---|---|---|
@@ -221,8 +228,8 @@ user could start it. That is a path from user to Administrator with no prompt.
 The flow now:
 
 1. The collector starts the snapshot task (`schtasks /run`).
-2. The task VSS-copies `SRUDB.dat` into `%ProgramData%\DataUsageTracker\work`
-   and writes `status.json`.
+2. The task VSS-copies `SRUDB.dat` into `<deploy root>\work` and writes
+   `status.json`.
 3. The collector waits for a status newer than its request, copies the
    snapshot into its own scratch folder, and replays, parses, ingests and backs
    up there, unelevated. The journals are readable without elevation, which is
@@ -232,8 +239,9 @@ What keeps it safe:
 
 - The deploy directory is created **with** its security descriptor in one call
   (SYSTEM and Administrators full, the registering user read-only, inheritance
-  off). `%ProgramData%` lets ordinary users create files in subfolders, so
-  "create, then lock down" leaves a gap.
+  off). `%ProgramData%` lets ordinary users create files in subfolders, and a
+  drive root lets them create folders, so "create, then lock down" leaves a
+  gap.
 - `srum-snapshot.ps1` re-checks that directory every run
   (`Test-AdminOnlyWrite` in `protected-dir.ps1`) and writes nothing, not even
   its status, into a directory others can write: a planted link there would
