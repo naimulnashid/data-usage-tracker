@@ -215,7 +215,8 @@ Register-ScheduledTask `
     -Action (New-ScheduledTaskAction -Execute $psExe -Argument $snapArgs -WorkingDirectory $deployRoot) `
     -Principal (New-ScheduledTaskPrincipal -UserId $userSid -LogonType S4U -RunLevel Highest) `
     -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-        -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30)) `
+        -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30) `
+        -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)) `
     -Description 'VSS-copies the Windows SRUM database for the Data Usage Collector. The only elevated step; runs an admin-owned script from its working directory.' `
     -Force | Out-Null
 Write-Host "Registered '$SnapshotTaskName' - on demand, highest privileges." -ForegroundColor Green
@@ -258,7 +259,9 @@ $settings = New-ScheduledTaskSettingsSet `
     -DontStopIfGoingOnBatteries `
     -AllowStartIfOnBatteries `
     -MultipleInstances IgnoreNew `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+    -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
+    -RestartCount 3 `
+    -RestartInterval (New-TimeSpan -Minutes 1)
 
 # StartWhenAvailable is the important one: it runs a missed occurrence once the
 # machine is next on. Without it, a laptop that sleeps through its runs simply

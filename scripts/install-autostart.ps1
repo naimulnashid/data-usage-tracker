@@ -48,13 +48,19 @@ $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 # Defaults built for laptops actively fight a long-running server: Windows will
 # refuse to start it on battery and kill it after three days. Turn all of that
 # off. StartWhenAvailable catches a logon the task missed.
+# RestartCount covers the task failing to START. It cannot see the server
+# crash later - the task runs dashboard-hidden.vbs, which exits as soon as it
+# has launched the service - so dashboard-service.ps1 restarts the server
+# itself, on the same 3-times-a-minute-apart policy.
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
     -DontStopOnIdleEnd `
     -StartWhenAvailable `
     -ExecutionTimeLimit ([TimeSpan]::Zero) `
-    -MultipleInstances IgnoreNew
+    -MultipleInstances IgnoreNew `
+    -RestartCount 3 `
+    -RestartInterval (New-TimeSpan -Minutes 1)
 
 Register-ScheduledTask -TaskName $taskName `
     -Action $action -Trigger $trigger -Settings $settings `
@@ -113,7 +119,9 @@ if ((Test-Path $watchScript) -and (Test-Path $watchVbs)) {
         -DontStopOnIdleEnd `
         -StartWhenAvailable `
         -ExecutionTimeLimit (New-TimeSpan -Minutes 5) `
-        -MultipleInstances IgnoreNew
+        -MultipleInstances IgnoreNew `
+        -RestartCount 3 `
+        -RestartInterval (New-TimeSpan -Minutes 1)
 
     Register-ScheduledTask -TaskName $watchName `
         -Action $watchAction -Trigger $watchTrigger -Settings $watchSettings `

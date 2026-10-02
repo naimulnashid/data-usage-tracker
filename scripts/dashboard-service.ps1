@@ -174,9 +174,55 @@ try {
         }
     }
 
-    Write-Log "Starting the dashboard on port $port."
-    & $npm start *>&1 | Write-LogOutput
-    Write-Log "Server exited with code $LASTEXITCODE."
+    # Restart on a crash. The logon task cannot do this itself: it runs
+    # dashboard-hidden.vbs, which starts this script and exits at once, so as
+    # far as Task Scheduler knows the task finished long before any crash. So
+    # this script stays with the server and restarts it when it exits without
+    # being asked to - 3 times at most within 10 minutes, a minute apart, the
+    # same policy as the task's own restart setting. A server that keeps dying
+    # (a broken build, say) is left down rather than restarted forever.
+    #
+    # "Asked to" is dashboard-stop.ps1, which writes logs\dashboard.stop before
+    # it stops anything. A marker left over from an earlier stop is cleared
+    # here, so it cannot end this run's first crash-restart.
+    $stopMarker = Join-Path $logDir 'dashboard.stop'
+    Remove-Item $stopMarker -ErrorAction SilentlyContinue
+    $maxRestarts = 3
+    $crashes = @()
+
+    while ($true) {
+        Write-Log "Starting the dashboard on port $port."
+        & $npm start *>&1 | Write-LogOutput
+        $code = $LASTEXITCODE
+
+        if (Test-Path $stopMarker) {
+            Remove-Item $stopMarker -ErrorAction SilentlyContinue
+            Write-Log "Server stopped on request (exit code $code)."
+            break
+        }
+
+        $now = Get-Date
+        $crashes = @($crashes | Where-Object { $_ -gt $now.AddMinutes(-10) }) + $now
+        if ($crashes.Count -gt $maxRestarts) {
+            Write-Log "ERROR: the server exited unexpectedly (code $code), the $($crashes.Count)th time in 10 minutes. Not restarting it again until the next logon; the lines above say why."
+            exit 1
+        }
+        Write-Log "WARNING: the server exited unexpectedly (code $code). Restarting in 60 s (restart $($crashes.Count) of $maxRestarts)."
+        Start-Sleep -Seconds 60
+
+        # Stopped during the wait, or started again by hand meanwhile? Then
+        # this restart is not wanted, and on a held port it would only fail.
+        if (Test-Path $stopMarker) {
+            Remove-Item $stopMarker -ErrorAction SilentlyContinue
+            Write-Log 'Stop requested while waiting to restart - not restarting.'
+            break
+        }
+        $held = @(Get-PortHolder)
+        if ($held.Count -gt 0) {
+            Write-Log "Port $port is in use again (PID $(($held.Id) -join ', ')) - not restarting."
+            break
+        }
+    }
 }
 catch {
     Write-Log "ERROR: $($_.Exception.Message)"
