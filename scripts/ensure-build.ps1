@@ -3,10 +3,12 @@
 
         powershell -ExecutionPolicy Bypass -File scripts\ensure-build.ps1
         powershell -ExecutionPolicy Bypass -File scripts\ensure-build.ps1 -LogFile logs\dashboard.log
+        powershell -ExecutionPolicy Bypass -File scripts\ensure-build.ps1 -Force
 
     Both launchers call this: the logon task by way of dashboard-service.ps1,
     and start-data-usage-dashboard.bat directly. One answer to "is there a
-    build to serve", in one place.
+    build to serve", in one place. -Force rebuilds whatever is there; the .bat
+    passes it for FORCE_BUILD=1, as the other dashboards' launchers do.
 
     WHAT IT DELIBERATELY DOES NOT DO is rebuild because a source file is newer
     than the build. That check used to live in dashboard-service.ps1, where it
@@ -28,7 +30,10 @@
 param(
     # Append everything to this file as well as writing it out. The logon task
     # runs with no console, so without this its output goes nowhere.
-    [string]$LogFile
+    [string]$LogFile,
+
+    # Rebuild even when there is a complete build. Asked for by hand only.
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
@@ -91,7 +96,7 @@ function Invoke-Logged($exe, $arguments) {
 $buildId = Join-Path $root '.next\BUILD_ID'
 $serverDir = Join-Path $root '.next\server'
 
-if ((Test-Path $buildId) -and (Test-Path $serverDir)) {
+if ((Test-Path $buildId) -and (Test-Path $serverDir) -and -not $Force) {
     # Warn, never act. See the header.
     $builtAt = (Get-Item $buildId).LastWriteTime
     $sources = @()
@@ -123,7 +128,8 @@ if (-not (Test-Path 'node_modules')) {
     if ($LASTEXITCODE -ne 0) { throw "npm install failed with exit code $LASTEXITCODE." }
 }
 
-Say 'No production build found - building. This should happen once, not at every logon.'
+if ($Force) { Say 'Rebuilding, as asked.' }
+else { Say 'No production build found - building. This should happen once, not at every logon.' }
 Invoke-Logged $npm @('run', 'build')
 
 if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE." }
