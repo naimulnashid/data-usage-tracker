@@ -162,6 +162,9 @@ By default the dashboard answers only on `127.0.0.1`. To reach it from another
 device, which the phone app needs, add `DASHBOARD_HOST=0.0.0.0` to `.env.local`
 and allow Node.js through Windows Firewall on **Private** networks only. It is
 plain HTTP behind this password, so keep it off networks you do not trust.
+Windows' first prompt for Node.js usually allows **Public** networks too; after
+marking your home network **Private**, run `npm run firewall` once from an
+Administrator shell to block port 7843 on Public networks.
 
 ### 3. Register the tasks, and collect
 

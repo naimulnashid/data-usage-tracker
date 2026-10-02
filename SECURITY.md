@@ -19,7 +19,9 @@ This is a local tool, so the interesting boundaries are local ones:
   password, bypasses the login throttle, or lets another page act with a
   signed-in session is in scope. By default it listens on `127.0.0.1`; with
   `DASHBOARD_HOST` set it is reachable on the local network over plain HTTP,
-  which is a documented trade-off, not a vulnerability in itself.
+  which is a documented trade-off, not a vulnerability in itself. On Windows,
+  `npm run firewall` (Administrator) blocks the port on **Public** networks;
+  see `scripts/firewall-private-only.ps1`.
 - **The privilege split.** Only `scripts/srum-snapshot.ps1` runs as
   Administrator, from the admin-only folder registration creates
   (`DataUsageTracker-snapshot` on the database's drive, or

@@ -19,6 +19,7 @@
     "dev": "node scripts/run-next.mjs dev",
     "build": "node scripts/run-next.mjs build",
     "start": "node scripts/run-next.mjs start",
+    "firewall": "powershell -ExecutionPolicy Bypass -File scripts/firewall-private-only.ps1",
     "selftest": "tsx scripts/selftest.ts",
     "drill": "tsx scripts/reset-drill.ts",
     "restore": "powershell -ExecutionPolicy Bypass -File scripts/restore.ps1",
