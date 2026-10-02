@@ -61,10 +61,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\ensure-build.ps1" %
 if errorlevel 1 goto :failed
 
 REM --- Open the browser once the server actually answers. ---------------------
-REM `next start` binds the port only when it is ready to serve, so a listening
-REM port is the honest signal. Opening the browser up front, as this used to,
-REM just races the server and shows a connection error on a cold start - which
-REM is exactly the start that needed the wait.
+REM `next start` opens the port a moment before it has finished starting, but
+REM holds any request that arrives in that moment until it is ready, rather
+REM than refusing it - so a listening port is the honest signal. Opening the
+REM browser up front, as this used to, just races the server and shows a
+REM connection error on a cold start - which is exactly the start that needed
+REM the wait.
 REM
 REM /b keeps it in this console, so closing the window takes the waiter with it.
 echo Starting on %URL% ...
