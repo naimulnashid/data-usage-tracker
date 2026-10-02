@@ -347,7 +347,7 @@ browser.
 |---|---|
 | Report from the command line | `npm run stats` (add `-- --profile <id>` to scope) |
 | Development server | `npm run dev` |
-| Stop the dashboard | `powershell -ExecutionPolicy Bypass -File scripts\dashboard-stop.ps1` |
+| Stop the dashboard | Double-click `stop-dashboard.bat`, or `powershell -ExecutionPolicy Bypass -File scripts\dashboard-stop.ps1` |
 | Turn off autostart | `powershell -ExecutionPolicy Bypass -File scripts\install-autostart.ps1 -Remove` |
 | Remove the collector tasks | `powershell -ExecutionPolicy Bypass -File scripts\register-task.ps1 -Unregister` (Administrator) |
 | Self-test (no admin, no real data) | `npm run selftest` |
