@@ -17,5 +17,10 @@ android/gradlew text eol=lf
 # whatever core.autocrlf says.
 android/gradlew.bat text eol=crlf
 
+# The same holds for this project's own launchers: start-data-usage-dashboard.bat
+# jumps to a label with GOTO, and was checked out LF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 # The wrapper jar is a binary and must never be eol-normalised.
 android/gradle/wrapper/gradle-wrapper.jar binary
