@@ -35,6 +35,7 @@ import { safeNextPath } from '../src/lib/safe-redirect.js';
 import { cleanColor, ink, uploadOf, colorOf } from '../src/lib/app-colors.js';
 import { pageItems, clampPage } from '../src/lib/pager.js';
 import { byNamingOrder } from '../src/lib/android-names.js';
+import { mergeAndroidDevice } from '../src/lib/android-merge.js';
 import { isSameOrigin } from '../src/lib/same-origin.js';
 import { parseDays, ALL_DAYS, DEFAULT_DAYS } from '../src/lib/scope.js';
 import { LoginThrottle, DEFAULT_THROTTLE } from '../src/lib/login-throttle.js';
@@ -513,6 +514,35 @@ function androidChecks(): void {
       'SELECT user_profile p FROM android_apps WHERE uid = 99910274',
     ).get() as { p: number };
     check('a cloned app records its user profile', Number(clone.p) === 999, `got ${clone.p}`);
+
+    // A reinstalled app reports under a new id and re-sends what Android
+    // still holds. Merging the old id in must keep the larger reading of a
+    // bucket both hold, move what only the old one has, and leave one phone.
+    const NEW = 'selftest-device-0002';
+    ingestAndroid(androidPayload({
+      deviceId: NEW,
+      buckets: [
+        { uid: 10181, start: T, network: 'wifi', metered: false, roaming: false, rx: 3000, tx: 900 },
+        { uid: 10181, start: T + 7200000, network: 'wifi', metered: false, roaming: false, rx: 7, tx: 7 },
+      ],
+    }), opts);
+    db.prepare(`INSERT INTO app_renames VALUES ('selftest-device-0001', '10181', 'Old name', 'x'),
+                                               ('${NEW}', '10181', 'New name', 'x')`).run();
+    mergeAndroidDevice(db, 'selftest-device-0001', NEW);
+    const merged = db.prepare(`
+      SELECT (SELECT COUNT(*) FROM android_devices) devices,
+             (SELECT COUNT(*) FROM android_usage_records WHERE device_id = '${NEW}') rows,
+             (SELECT rx_bytes || '/' || tx_bytes FROM android_usage_records
+               WHERE device_id = '${NEW}' AND network = 'wifi' AND bucket_start_utc =
+                 (SELECT MIN(bucket_start_utc) FROM android_usage_records)) shared,
+             (SELECT name FROM app_renames WHERE app_key = '10181') rename,
+             (SELECT COUNT(*) FROM app_renames) renames`).get() as Record<string, unknown>;
+    check('a merge leaves one phone with every bucket', Number(merged.devices) === 1
+      && Number(merged.rows) === 3, JSON.stringify(merged));
+    check('a merge keeps the larger reading per counter', merged.shared === '4000/900',
+      String(merged.shared));
+    check('a merge keeps the new id rename', merged.rename === 'New name'
+      && Number(merged.renames) === 1, JSON.stringify(merged));
     db.close();
 
     // Validation rejects rather than storing something half-valid.

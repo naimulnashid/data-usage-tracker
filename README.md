@@ -260,9 +260,24 @@ USB** is on; without that, `adb push` the APK to the phone and install it from
 the file manager.
 
 Android only lets an APK update an installed copy signed with the same key. So
-switching between the release APK and your own build means uninstalling first
-(the dashboard keeps everything already uploaded, and the app re-sends the
-phone's history on its first sync).
+switching between the release APK and your own build means uninstalling first,
+and so does moving from the debug-signed 1.2 to 1.3 or later. Nothing already
+uploaded is lost, and the app re-sends the phone's history on its first sync,
+but the reinstalled app reports under a **new device id**, so the phone shows
+up twice. After it has synced once, fold the old entry into the new one:
+
+```bash
+npm run android:merge
+```
+
+lists the phones with their ids and app versions;
+`npm run android:merge -- --from <old id> --into <new id>` shows what would
+move, and adding `--apply` backs the database up beside your backup and merges.
+
+If the install still fails after uninstalling ("package conflicts with an
+existing package"), a copy is left in another profile such as Private Space,
+Dual Apps or a work profile, or the uninstall kept the app's data. With the
+phone on USB, `adb uninstall com.naimul.datausage` removes it for every user.
 
 To sign release builds with a key of your own, create one with `keytool
 -genkeypair` and keep it outside the repo, next to a properties file holding

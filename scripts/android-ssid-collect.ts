@@ -44,6 +44,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { openDatabase } from '../src/lib/db';
 
 /* ------------------------------------------------------------------ */
@@ -179,20 +180,41 @@ function dbPath(): string {
 /**
  * The device id the REPORTER APP generated.
  *
- * Read out of the app's own prefs with `run-as`, which works because the
- * sideloaded build is debuggable. Matching on brand and model instead would
- * break the moment there are two of the same handset -- and the whole point of
- * the id is that it survives a rename.
+ * Read out of the app's own prefs with `run-as`, which works only on a
+ * DEBUGGABLE build. Since app 1.3 the published APK is release-signed and
+ * `run-as` refuses it, so after that come, in order:
+ *
+ * - `--device <id>`, always honoured first.
+ * - The one phone in the database with this handset's brand and model. Only
+ *   when exactly one matches: with two of the same handset, guessing would
+ *   file one phone's networks under the other, so it stops and lists them.
  */
 function deviceIdFromApp(): string | null {
+  const i = process.argv.indexOf('--device');
+  if (i > 0 && process.argv[i + 1]) return process.argv[i + 1]!;
+
   const xml = adb(
     ['shell', 'run-as', 'com.naimul.datausage', 'cat',
       '/data/data/com.naimul.datausage/shared_prefs/data-usage.xml'],
     true,
   );
-  if (xml.startsWith('__FAILED__')) return null;
   const m = /<string name="device_id">([^<]+)<\/string>/.exec(xml);
-  return m ? m[1]!.trim() : null;
+  if (!xml.startsWith('__FAILED__') && m) return m[1]!.trim();
+
+  const brand = adb(['shell', 'getprop', 'ro.product.brand']).trim();
+  const model = adb(['shell', 'getprop', 'ro.product.model']).trim();
+  const db = new DatabaseSync(dbPath(), { readOnly: true });
+  const found = db.prepare(
+    'SELECT device_id, label, last_seen FROM android_devices WHERE brand = ? AND model = ?',
+  ).all(brand, model) as { device_id: string; label: string; last_seen: string }[];
+  db.close();
+  if (found.length === 1) {
+    warn(`release build, so the id comes from the one ${brand} ${model} the dashboard knows`);
+    return found[0]!.device_id;
+  }
+  for (const d of found) console.log(`         ${d.device_id}  ${d.label}, last seen ${d.last_seen}`);
+  if (found.length > 1) console.log('         More than one matches this handset: pass --device <id>.');
+  return null;
 }
 
 function main(): void {
