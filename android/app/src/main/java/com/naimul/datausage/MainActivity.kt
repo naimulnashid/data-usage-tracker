@@ -62,7 +62,7 @@ class MainActivity : Activity() {
 
         root.addView(label("Dashboard address"))
         urlField = EditText(this).apply {
-            hint = "http://192.168.1.20:7843"
+            hint = ServerAddress.EXAMPLE
             setText(prefs.serverUrl)
             inputType = InputType.TYPE_TEXT_VARIATION_URI
             setSingleLine()
@@ -189,16 +189,30 @@ class MainActivity : Activity() {
         if (requestCode == REQ_PHONE_STATE || requestCode == REQ_NOTIFY) refreshStatus()
     }
 
-    private fun save() {
-        prefs.serverUrl = urlField.text.toString()
+    /**
+     * Saves the fields, unless the address is malformed: then it is NOT saved,
+     * and the problem is shown on the field itself. Keeping the last good
+     * address means a typo cannot take a working phone offline.
+     */
+    private fun save(): Boolean {
         prefs.token = tokenField.text.toString()
+        val problem = ServerAddress.problem(urlField.text.toString())
+        if (problem != null) {
+            urlField.error = problem
+            urlField.requestFocus()
+            toast(problem)
+            return false
+        }
+        urlField.error = null
+        prefs.serverUrl = urlField.text.toString()
         if (prefs.isConfigured) SyncJobService.schedule(this)
+        return true
     }
 
     private fun saveAndTest() {
-        save()
+        if (!save()) return
         if (!prefs.isConfigured) {
-            toast("Enter the address and the token first")
+            toast("Enter the token first")
             return
         }
         Thread {
@@ -207,15 +221,16 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 Uploader.Result(false, e.message ?: "failed", null)
             }
+            val hint = if (result.ok) null else ServerAddress.failureHint(prefs.serverUrl)
             runOnUiThread {
-                toast(if (result.ok) "Connected" else result.message)
+                toast(if (result.ok) "Connected" else listOfNotNull(result.message, hint).joinToString("\n"))
                 refreshStatus()
             }
         }.start()
     }
 
     private fun syncNow() {
-        save()
+        if (!save()) return
         toast("Syncing...")
         Thread {
             val outcome = SyncRunner(applicationContext).runOnce()
@@ -237,6 +252,10 @@ class MainActivity : Activity() {
      * larger value replaces a smaller one.
      */
     private fun fullResync() {
+        if (ServerAddress.problem(urlField.text.toString()) != null) {
+            syncNow() // shows the problem, keeps the watermark
+            return
+        }
         prefs.syncedThrough = 0
         toast("Watermark cleared, re-sending everything")
         syncNow()

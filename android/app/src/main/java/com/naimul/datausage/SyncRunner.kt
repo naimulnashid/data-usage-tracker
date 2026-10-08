@@ -18,6 +18,10 @@ class SyncRunner(private val context: Context) {
     fun runOnce(): Outcome {
         val prefs = Prefs(context)
         if (!prefs.isConfigured) return finish(prefs, false, "Server address and token not set")
+        // An address saved by 1.4 or older was never checked.
+        ServerAddress.problem(prefs.serverUrl)?.let {
+            return finish(prefs, false, "Dashboard address: $it")
+        }
         if (!hasUsageAccess(context)) return finish(prefs, false, "Usage access not granted")
         if (!hasPhoneState(context)) return finish(prefs, false, PHONE_STATE_MISSING)
 

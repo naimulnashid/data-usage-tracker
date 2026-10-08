@@ -241,7 +241,7 @@ simplest way is the signed APK attached to the newest
 carries one:
 
 ```bash
-adb install -r data-usage-reporter-1.4.apk
+adb install -r data-usage-reporter-1.4.1.apk
 ```
 
 Or build it yourself:
