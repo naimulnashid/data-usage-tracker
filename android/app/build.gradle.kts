@@ -61,8 +61,8 @@ android {
         // check will name anything else.
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     // BuildConfig is off by default from AGP 8; Uploader reports the app

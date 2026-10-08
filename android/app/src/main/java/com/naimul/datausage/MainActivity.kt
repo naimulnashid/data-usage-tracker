@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
@@ -90,6 +91,13 @@ class MainActivity : Activity() {
                 requestPermissions(arrayOf(Manifest.permission.READ_PHONE_STATE), REQ_PHONE_STATE)
             })
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ asks before an app may post notifications, and the
+            // only one this app posts is the week-without-a-sync alert.
+            root.addView(button("Allow sync alerts") {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFY)
+            })
+        }
         root.addView(button("Sync now") { syncNow() })
         root.addView(button("Full resync (re-send everything)") { fullResync() })
 
@@ -158,6 +166,15 @@ class MainActivity : Activity() {
         root.addView(status)
 
         setContentView(ScrollView(this).apply { addView(root) })
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !SyncWatch.notificationsAllowed(this) && savedInstanceState == null
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFY)
+        }
+        // Books the watch for installs upgraded from 1.3, whose sync job was
+        // registered before the watch existed.
+        if (prefs.isConfigured) SyncWatch.schedule(this)
     }
 
     override fun onResume() {
@@ -169,7 +186,7 @@ class MainActivity : Activity() {
         requestCode: Int, permissions: Array<out String>, grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_PHONE_STATE) refreshStatus()
+        if (requestCode == REQ_PHONE_STATE || requestCode == REQ_NOTIFY) refreshStatus()
     }
 
     private fun save() {
@@ -241,6 +258,13 @@ class MainActivity : Activity() {
                     else "Phone permission: NOT GRANTED (sync refuses without it)\n",
                 )
             }
+            append(
+                if (SyncWatch.notificationsAllowed(this@MainActivity)) "Sync alerts: on\n"
+                else "Sync alerts: OFF (no warning after a week without a sync)\n",
+            )
+            if (prefs.lastSuccessAt > 0) {
+                append("Last successful sync: ${fmt.format(Date(prefs.lastSuccessAt))}\n")
+            }
             if (scheduled) {
                 // What the SYSTEM accepted, not what was asked for. Android
                 // clamps a periodic job's interval by its own flex rules and by
@@ -311,5 +335,6 @@ class MainActivity : Activity() {
 
     private companion object {
         const val REQ_PHONE_STATE = 1
+        const val REQ_NOTIFY = 2
     }
 }

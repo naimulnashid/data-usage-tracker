@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Status-bar icon: the launcher's three bars, flat white. Android draws a
+  notification's small icon from its alpha alone, so the launcher icon's three
+  greens would come out as one undifferentiated block.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,14 h4 v7 h-4 z M10,9 h4 v12 h-4 z M16,3 h4 v18 h-4 z" />
+</vector>

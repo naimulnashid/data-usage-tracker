@@ -65,6 +65,7 @@ class SyncRunner(private val context: Context) {
     private fun finish(prefs: Prefs, ok: Boolean, message: String): Outcome {
         prefs.lastResult = (if (ok) "OK - " else "Failed - ") + message
         prefs.lastResultAt = System.currentTimeMillis()
+        SyncWatch.onSyncFinished(context, ok)
         return Outcome(ok, message)
     }
 

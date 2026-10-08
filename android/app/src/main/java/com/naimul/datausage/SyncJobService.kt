@@ -64,6 +64,8 @@ class SyncJobService : JobService() {
                 .setPersisted(true)
                 .build()
             scheduler.schedule(job)
+            // Every caller that books the sync also wants it watched.
+            SyncWatch.schedule(context)
         }
 
         /**
@@ -84,6 +86,7 @@ class SyncJobService : JobService() {
 
         fun cancel(context: Context) {
             context.getSystemService(JobScheduler::class.java).cancel(JOB_ID)
+            SyncWatch.cancel(context)
         }
     }
 }

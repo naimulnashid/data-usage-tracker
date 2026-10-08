@@ -236,11 +236,12 @@ ANDROID_INGEST_TOKEN=another-long-random-string
 ```
 
 Make sure `DASHBOARD_HOST=0.0.0.0` is set (step 2), then install the app. The
-simplest way is the signed APK attached to each
-[release](https://github.com/naimulnashid/data-usage-tracker/releases):
+simplest way is the signed APK attached to the newest
+[release](https://github.com/naimulnashid/data-usage-tracker/releases) that
+carries one:
 
 ```bash
-adb install -r data-usage-reporter-1.3.apk
+adb install -r data-usage-reporter-1.4.apk
 ```
 
 Or build it yourself:

@@ -77,6 +77,21 @@ class Prefs(context: Context) {
         get() = sp.getLong(KEY_RESULT_AT, 0L)
         set(v) = sp.edit().putLong(KEY_RESULT_AT, v).apply()
 
+    /** Epoch ms of the last sync that ended OK. 0 before 1.4 recorded it. */
+    var lastSuccessAt: Long
+        get() = sp.getLong(KEY_SUCCESS_AT, 0L)
+        set(v) = sp.edit().putLong(KEY_SUCCESS_AT, v).apply()
+
+    /** When SyncWatch last posted its alert, so it repeats daily, not hourly. */
+    var lastAlertAt: Long
+        get() = sp.getLong(KEY_ALERT_AT, 0L)
+        set(v) = sp.edit().putLong(KEY_ALERT_AT, v).apply()
+
+    /** SyncWatch's clock when no success is on record. See staleSince. */
+    var watchSince: Long
+        get() = sp.getLong(KEY_WATCH_SINCE, 0L)
+        set(v) = sp.edit().putLong(KEY_WATCH_SINCE, v).apply()
+
     val isConfigured: Boolean
         get() = serverUrl.isNotEmpty() && token.isNotEmpty()
 
@@ -94,5 +109,8 @@ class Prefs(context: Context) {
         const val KEY_THROUGH = "synced_through"
         const val KEY_RESULT = "last_result"
         const val KEY_RESULT_AT = "last_result_at"
+        private const val KEY_SUCCESS_AT = "last_success_at"
+        private const val KEY_ALERT_AT = "last_alert_at"
+        private const val KEY_WATCH_SINCE = "watch_since"
     }
 }

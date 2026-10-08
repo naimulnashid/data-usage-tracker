@@ -25,6 +25,9 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE"
         android:maxSdkVersion="28" />
 
+    <!-- Android 13+: needed for SyncWatch's "no sync for a week" alert. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -62,6 +65,11 @@
 
         <service
             android:name=".SyncJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false" />
+
+        <service
+            android:name=".SyncWatchJobService"
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="false" />
 
