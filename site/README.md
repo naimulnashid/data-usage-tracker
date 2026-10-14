@@ -11,6 +11,11 @@ from `docs/screenshots/`, which `npm run demo:shots` regenerates in both
 themes from one history; the page shows the set matching its own theme, and
 the build copies them in rather than keeping a second set here.
 
+**Phones get the desktop layout, zoomed to fit**, as the dashboard does: the
+viewport tag is `width=1024` with no initial scale, so a phone lays the page
+out 1024px wide and scales it down. Desktop browsers ignore the tag. The
+narrow-width CSS still serves a narrow desktop window.
+
 ## Build and preview
 
 ```bash
