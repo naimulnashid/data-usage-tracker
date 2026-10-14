@@ -84,10 +84,10 @@ async function main(): Promise<void> {
       const ingest = need(secret('ANDROID_INGEST_TOKEN'), 'ANDROID_INGEST_TOKEN is not set in .env.local.');
       const drain = need(secret('INBOX_DRAIN_TOKEN'), 'INBOX_DRAIN_TOKEN is not set: run `npm run inbox -- drain-token`.');
       console.log(
-        `insert into public.inbox_keys (role, token_sha256) values\n` +
-          `  ('upload', '${sha256Hex(uploadBearer(ingest))}'),\n` +
-          `  ('drain',  '${sha256Hex(drain)}')\n` +
-          `on conflict (role) do update set token_sha256 = excluded.token_sha256;`,
+        `insert into public.inbox_keys (app, role, token_sha256) values\n` +
+          `  ('data-usage', 'upload', '${sha256Hex(uploadBearer(ingest))}'),\n` +
+          `  ('data-usage', 'drain',  '${sha256Hex(drain)}')\n` +
+          `on conflict (app, role) do update set token_sha256 = excluded.token_sha256;`,
       );
       return;
     }

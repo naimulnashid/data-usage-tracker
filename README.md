@@ -322,10 +322,12 @@ token into the key derivation, so the inbox cannot forge one either. It sees
 an envelope's size, its time and the phone's random device id. The format is
 written out at the top of `src/lib/inbox.ts`.
 
-It runs on Supabase's free tier, as one Edge Function and two tables:
+It runs on Supabase's free tier, as one Edge Function and two tables. The
+same function serves the sibling Screen Time Tracker as a separate mailbox,
+so one free project covers both:
 
-1. Create a Supabase project. Run `supabase/migrations/*.sql` in its SQL
-   editor, and deploy `supabase/functions/inbox` with **JWT verification off**
+1. Create a Supabase project. Run `supabase/migrations/*.sql` in order in its
+   SQL editor, and deploy `supabase/functions/inbox` with **JWT verification off**
    (the function checks its own tokens):
    `supabase functions deploy inbox --no-verify-jwt`.
 2. In `config/collector.json`, set
