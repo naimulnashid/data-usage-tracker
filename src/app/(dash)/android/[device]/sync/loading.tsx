@@ -17,7 +17,7 @@ export default function Loading() {
     <>
       <SkPageHead
         title="Sync Status"
-        sub="Android 16 (API 36) · Pixel 8 pushes on its own schedule — every 6 hours, on unmetered networks only. Nothing here triggers it."
+        sub="Android 16 (API 36) · Pixel 8 pushes on its own schedule, set in the app. Nothing here triggers it."
       />
       <SkStats columns={3}>
         <SkStat size="small" label="Last upload" value="2h ago" sub="30 Sept 2026, 11:04" />

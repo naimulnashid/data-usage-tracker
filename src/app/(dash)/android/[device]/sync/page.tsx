@@ -82,8 +82,7 @@ export default async function AndroidSyncPage({
         */}
         <p>
           Android {device.release} (API {device.sdk}) &middot; {device.label} pushes
-          on its own schedule &mdash; every 6 hours, on unmetered networks only.
-          Nothing here triggers it.
+          on its own schedule, set in the app. Nothing here triggers it.
         </p>
       </div>
 
