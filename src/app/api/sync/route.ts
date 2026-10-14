@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getSync } from '@/lib/queries';
+import { getInboxLanded } from '@/lib/android-queries';
 
 const run = promisify(execFile);
 
@@ -72,7 +73,13 @@ export async function POST() {
  * says, so the client can tell "finished, nothing new" (a normal, healthy
  * outcome) from "finished, added rows" and from "still going".
  */
-export async function GET() {
+export async function GET(request: Request) {
+  // A run also empties the phones' cloud inbox, when there is one. The client
+  // sends back the id it saw before starting, to learn what landed since.
+  const raw = new URL(request.url).searchParams.get('phonesSince');
+  const since = raw === null ? NaN : Number(raw);
+  const phones = getInboxLanded(Number.isInteger(since) && since >= 0 ? since : null);
+
   let running = false;
   let registered = true;
 
@@ -106,5 +113,6 @@ export async function GET() {
         }
       : null,
     totalRows: sync.totalRows,
+    phones,
   });
 }

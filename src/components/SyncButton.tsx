@@ -15,6 +15,25 @@ interface LastRun {
   error: string | null;
 }
 
+interface PhonesLanded {
+  lastId: number;
+  uploads: number;
+  rowsWritten: number;
+}
+
+/** "Added 12 new rows. 1 phone upload landed (43 new rows)." */
+function outcome(added: number, phones: PhonesLanded | null): string {
+  const parts: string[] = [];
+  if (added > 0) parts.push(`Added ${added.toLocaleString('en-US')} new rows.`);
+  if (phones && phones.uploads > 0) {
+    const n = phones.uploads;
+    parts.push(
+      `${n} phone upload${n === 1 ? '' : 's'} landed (${phones.rowsWritten.toLocaleString('en-US')} new rows).`,
+    );
+  }
+  return parts.length ? parts.join(' ') : 'Up to date - nothing new since the last run.';
+}
+
 /**
  * Runs a collection on demand.
  *
@@ -22,6 +41,10 @@ interface LastRun {
  * and the dashboard runs unelevated on purpose. It starts the registered
  * collector task instead, which delegates that one step to its own elevated
  * task. See `src/app/api/sync/route.ts`.
+ *
+ * The same run empties the phones' cloud inbox when one is configured, which
+ * is why the phone pages carry this button too: it lands an upload now rather
+ * than at the next scheduled drain.
  *
  * A run takes roughly 10-20s, so this starts the task and then polls, rather
  * than holding a request open. The outcome goes to a toast rather than inline
@@ -35,6 +58,7 @@ export function SyncButton() {
   const [message, setMessage] = useState<string | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
   const baseline = useRef<number | null>(null);
+  const phonesBaseline = useRef(0);
 
   const stopPolling = useCallback(() => {
     if (poll.current) {
@@ -46,7 +70,7 @@ export function SyncButton() {
   useEffect(() => stopPolling, [stopPolling]);
 
   const finish = useCallback(
-    (last: LastRun | null) => {
+    (last: LastRun | null, phones: PhonesLanded | null) => {
       stopPolling();
 
       if (last && last.status === 'failed') {
@@ -56,12 +80,7 @@ export function SyncButton() {
       }
 
       setPhase('done');
-      const added = last?.rowsInserted ?? 0;
-      setMessage(
-        added > 0
-          ? `Added ${added.toLocaleString('en-US')} new rows.`
-          : 'Up to date - nothing new since the last run.',
-      );
+      setMessage(outcome(last?.rowsInserted ?? 0, phones));
       // Pull the server components again so the pages show the new rows.
       router.refresh();
     },
@@ -75,6 +94,7 @@ export function SyncButton() {
     try {
       const seen = await fetch('/api/sync', { cache: 'no-store' }).then((r) => r.json());
       baseline.current = seen?.lastRun?.id ?? null;
+      phonesBaseline.current = seen?.phones?.lastId ?? 0;
 
       const res = await fetch('/api/sync', { method: 'POST' });
       if (!res.ok) {
@@ -93,13 +113,16 @@ export function SyncButton() {
       poll.current = setInterval(async () => {
         elapsed += 2;
         try {
-          const s = (await fetch('/api/sync', { cache: 'no-store' }).then((r) => r.json())) as {
+          const s = (await fetch(`/api/sync?phonesSince=${phonesBaseline.current}`, {
+            cache: 'no-store',
+          }).then((r) => r.json())) as {
             running: boolean;
             lastRun: LastRun | null;
+            phones?: PhonesLanded;
           };
 
           const isNew = s.lastRun && s.lastRun.id !== baseline.current;
-          if (isNew && !s.running) return finish(s.lastRun);
+          if (isNew && !s.running) return finish(s.lastRun, s.phones ?? null);
 
           // The collector normally finishes well inside this. Giving up here
           // means something is wrong, and saying so beats spinning forever.

@@ -415,6 +415,40 @@ export interface AndroidSyncStatus {
   runwayDays: number | null;
 }
 
+export interface InboxLanded {
+  /** The newest android_sync_log id, the baseline for the next call. */
+  lastId: number;
+  /** Uploads drained from the cloud inbox after `sinceId`. */
+  uploads: number;
+  rowsWritten: number;
+}
+
+/**
+ * What the cloud inbox delivered after `sinceId`, for the Sync button: a run
+ * started from a phone's page drains the inbox, and "nothing new" would be
+ * wrong when it did. Ids rather than times because a drained row keeps the
+ * phone's send time in received_at.
+ */
+export function getInboxLanded(sinceId: number | null): InboxLanded {
+  const none = { lastId: sinceId ?? 0, uploads: 0, rowsWritten: 0 };
+  try {
+    if (!existsSync(dbPath())) return none;
+    return withDb((db) => {
+      if (!hasColumn(db, 'android_sync_log', 'landed_at')) return none;
+      const last = db.prepare('SELECT COALESCE(MAX(id), 0) id FROM android_sync_log').get() as { id: number };
+      const got = db
+        .prepare(
+          `SELECT COUNT(*) n, COALESCE(SUM(rows_written), 0) w FROM android_sync_log
+            WHERE id > ? AND landed_at IS NOT NULL AND status = 'success'`,
+        )
+        .get(sinceId ?? Number(last.id)) as { n: number; w: number };
+      return { lastId: Number(last.id), uploads: Number(got.n), rowsWritten: Number(got.w) };
+    });
+  } catch {
+    return none;
+  }
+}
+
 export function getAndroidSyncStatus(deviceId: string, limit = 25, offset = 0): AndroidSyncStatus {
   return withDb((db) => {
     // landed_at arrived in schema 7, and this connection is read-only, so a

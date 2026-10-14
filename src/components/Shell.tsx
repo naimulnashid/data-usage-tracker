@@ -20,23 +20,26 @@ import { Footer } from './Footer';
  * - **`data-device`**, which is what swaps the accent. Every accent in the app
  *   is a CSS variable defined in `accent.ts`, so this one attribute repaints
  *   buttons, active tabs, focus rings, chart strokes and the heat-map ramp.
- * - **Which controls apply.** The page tabs come from the active device, and
- *   the Sync button drives the Windows collector. On the Android pages they would be controls
- *   for a machine you are not looking at, so they are not rendered at all
+ * - **Which controls apply.** The page tabs come from the active device. The
+ *   Sync button drives the Windows collector, which also empties the phones'
+ *   cloud inbox; without an inbox it would be a control for a machine you are
+ *   not looking at on the Android pages, so there it is not rendered at all
  *   rather than rendered inert.
  */
 export function Shell({
-  phones, laptop, children,
+  phones, laptop, phoneSync, children,
 }: {
   /** The laptop, as a slug and a label. From config; there is only ever one. */
   laptop: SidebarDevice;
   /** Android devices that have reported, for the sidebar. */
   phones: SidebarDevice[];
+  /** A sync drains the cloud inbox, so the phone pages get the button too. */
+  phoneSync: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const device = deviceOf(pathname);
-  const isWindows = device === 'windows';
+  const showSync = device === 'windows' || phoneSync;
 
   return (
     <div className="shell" data-device={device}>
@@ -47,11 +50,10 @@ export function Shell({
         <header className="topbar">
           <Nav />
           <div className="topbar-right">
-            {/* The Sync button runs the WINDOWS collector, so it is the one
-                control that genuinely does not apply on the phone's pages -
-                the phone pushes on its own schedule and there is nothing here
-                to trigger. */}
-            {isWindows && <SyncButton />}
+            {/* A phone that posts straight to the dashboard has nothing a sync
+                could fetch; one that posts to the cloud inbox waits for the
+                next drain, which a sync runs now. */}
+            {showSync && <SyncButton />}
             {/* The range chips apply to both devices.
 
                 ScopeBar reads useSearchParams, which opts any page containing
