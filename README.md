@@ -464,8 +464,9 @@ npm run demo:shots
 ```
 
 It starts its own dashboard on the demo data with a one-off password, captures
-four whole pages, top to bottom, in headless Chrome or Edge into
-`docs/screenshots/`, and stops it.
+four whole pages, top to bottom, in the dark theme and again in the light one
+(`*-light.webp`), in headless Chrome or Edge into `docs/screenshots/`, and
+stops it. Both sets come from one run, so they show the same numbers.
 It needs a current build, and it refuses to capture any page that lists a
 device other than the demo's two. That way a build that ignored
 `DATA_USAGE_CONFIG` cannot put your own data into an image.

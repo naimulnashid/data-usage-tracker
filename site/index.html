@@ -155,24 +155,24 @@
 
   <div class="gallery" id="gallery" data-device="windows">
 
-    <article class="viz span-2">
+    <article class="viz">
       <header><h3>Headline totals</h3><span class="where">Overview · App detail</span></header>
       <div class="stats" id="v-stats"></div>
     </article>
 
-    <article class="viz span-2">
+    <article class="viz">
       <header><h3>Daily trend</h3><span class="where">Overview</span></header>
       <p>A day above 2.5 times the average turns <span class="red">red</span>, the only use of red outside a failed collector run. A day never collected is a <em>break</em> in the line, not a zero.</p>
       <div class="chart" id="v-trend"></div>
     </article>
 
-    <article class="viz span-2">
+    <article class="viz">
       <header><h3>Activity heat map</h3><span class="where">Overview · expanded Activity page</span></header>
       <p>Outlined cells were never collected, which is different from a quiet day. <b>Expand</b> opens every 26-week block since collection began, on one colour scale.</p>
       <div class="chart" id="v-heat"></div>
     </article>
 
-    <article class="viz span-2">
+    <article class="viz">
       <header><h3>Daily usage by app</h3><span class="where">Overview</span></header>
       <p>Apps keep their brand colour wherever they appear, held inside a lightness band so near-white brands stay visible in both themes.</p>
       <div class="chart" id="v-stack"></div>
@@ -198,17 +198,17 @@
 
     <article class="viz">
       <header><h3>One app against the rest</h3><span class="where">Laptop overview, optional</span></header>
-      <p>When one app dwarfs the others, naming it in config (<code>splitApp</code>) sets it apart, so everything else is readable at its own scale. A laptop setting, so it shows the laptop in either mode.</p>
+      <p>Naming one heavy app in config (<code>splitApp</code>) sets it apart, so everything else reads at its own scale. A laptop setting, so it shows in either mode.</p>
       <div id="v-split"></div>
     </article>
 
-    <article class="viz span-2">
+    <article class="viz">
       <header><h3>Where it went</h3><span class="where">Overview · App detail</span></header>
-      <p>Network names on the laptop are learned by watching which network it is on; on a phone they come from a USB capture, and traffic over a VPN is shown apart rather than guessed at.</p>
+      <p>The laptop learns network names by watching which one it is on; a phone's come from a USB capture, and VPN traffic is shown apart, not guessed at.</p>
       <div id="v-where"></div>
     </article>
 
-    <article class="viz span-2">
+    <article class="viz">
       <header><h3>The app table</h3><span class="where">By App</span></header>
       <p>Lists every app with enough activity for a detail page, expandable to every app ever seen. Click a header to sort, again to reverse.</p>
       <div id="v-table"></div>
@@ -346,8 +346,9 @@
     <div><b>Needs</b> Windows 10 or 11, Administrator rights once, Node.js 22.16+, SrumECmd with a .NET runtime, and a second drive or partition.</div>
     <div><b>For phones</b> Android 8.0+, and adb to install the app.</div>
   </div>
+  <h3 class="links-h">GitHub</h3>
   <div class="hero-cta">
-    <a class="btn btn-solid" href="https://github.com/naimulnashid/data-usage-tracker#setup">Setup guide</a>
+    <a class="btn" href="https://github.com/naimulnashid/data-usage-tracker#setup">Setup guide</a>
     <a class="btn" href="https://github.com/naimulnashid/data-usage-tracker/blob/main/docs/DESIGN.md">Design notes</a>
     <a class="btn" href="https://github.com/naimulnashid/data-usage-tracker/releases/latest">Latest release</a>
   </div>

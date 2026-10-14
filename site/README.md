@@ -7,8 +7,9 @@ dashboard's pages, every chart it draws, and every feature.
 Plain HTML, CSS and one script, with no framework and no dependencies. The
 charts are drawn in the browser from a fixed random seed, so they are the
 same on every load and are nobody's usage. The dashboard screenshots come
-from `docs/screenshots/`, which `npm run demo:shots` regenerates; the build
-copies them in rather than keeping a second set here.
+from `docs/screenshots/`, which `npm run demo:shots` regenerates in both
+themes from one history; the page shows the set matching its own theme, and
+the build copies them in rather than keeping a second set here.
 
 ## Build and preview
 

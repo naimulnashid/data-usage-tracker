@@ -3,7 +3,7 @@
  *
  *   npm run demo:data                (writes ./demo-data)
  *   npm run build                    (the shots show the BUILT dashboard)
- *   npm run demo:shots               (writes docs/screenshots/*.webp)
+ *   npm run demo:shots               (writes docs/screenshots/*.webp, dark and light)
  *   npm run demo:shots -- <demo-dir> (when demo:data was given one)
  *
  * Paired with `make-demo-data.ts`, and only meaningful with it: a screenshot of
@@ -81,6 +81,17 @@ const DEMO_DEVICES = ['My PC', 'Pixel 8'];
  * second look at an overview scrolled to a lower card ("Activity", "Where it
  * went"); a full-page capture already contains those.
  */
+/**
+ * Every page in both themes, in ONE run against one demo history, so a dark
+ * image and its light twin always show the same numbers. The history is
+ * anchored to the day `demo:data` ran, so two separate runs would not match.
+ * Dark keeps the plain file name the README links; light adds `-light`.
+ */
+const THEMES = [
+  { theme: 'dark', suffix: '' },
+  { theme: 'light', suffix: '-light' },
+] as const;
+
 const SHOTS: Shot[] = [
   { name: 'windows-overview', path: '/windows/my-pc' },
   { name: 'windows-apps', path: '/windows/my-pc/apps' },
@@ -220,79 +231,89 @@ async function main(): Promise<void> {
       name: SESSION_COOKIE, value, domain: '127.0.0.1', path: '/', httpOnly: true,
     });
 
-    for (const shot of SHOTS) {
-      await cdp.send('Page.navigate', { url: `${BASE}${shot.path}` });
+    for (const { theme, suffix } of THEMES) {
+      // The dashboard keeps the theme in localStorage (THEME_KEY in
+      // lib/theme.ts) and applies it before first paint, so it is set on the
+      // origin before any page of this pass loads.
+      await cdp.send('Page.navigate', { url: `${BASE}/login` });
+      for (let i = 0; i < 40 && !(await cdp.evaluate<boolean>(`location.origin === ${JSON.stringify(BASE)}`)); i++) await sleep(150);
+      await cdp.evaluate(`localStorage.setItem('du-theme', ${JSON.stringify(theme)})`);
 
-      // Loaded means: the streamed page replaced its skeleton, the sidebar has
-      // read its collapsed state, and every chart has drawn its surface.
-      let loaded = false;
-      for (let i = 0; i < 160 && !loaded; i++) {
-        await sleep(250);
-        loaded = await cdp.evaluate<boolean>(`(() => {
-          if (location.pathname !== ${JSON.stringify(shot.path)}) return false;
-          if (!document.querySelector('main#content h1')) return false;
-          if (document.querySelector('.skeleton')) return false;
-          if (!document.querySelector('.sidebar[data-ready="true"]')) return false;
-          const figures = [...document.querySelectorAll('[role=figure]')];
-          return figures.every((f) => !f.querySelector('.recharts-responsive-container')
-            || f.querySelector('svg.recharts-surface'));
-        })()`);
-      }
-      if (!loaded) throw new Error(`${shot.path} never finished rendering (signed in? demo data present?)`);
+      for (const shot of SHOTS) {
+        await cdp.send('Page.navigate', { url: `${BASE}${shot.path}` });
 
-      const devices = await cdp.evaluate<string[]>(
-        `[...document.querySelectorAll('.side-device')].map((a) => (a.getAttribute('aria-label') || a.textContent || '').split(',')[0].trim())`,
-      );
-      const sameSet = devices.length === DEMO_DEVICES.length && DEMO_DEVICES.every((d) => devices.includes(d));
-      if (!sameSet) {
-        throw new Error(
-          `${shot.path} lists devices ${JSON.stringify(devices)}, not the demo's ${JSON.stringify(DEMO_DEVICES)}. ` +
-            'This is not the demo database -- is the build older than DATA_USAGE_CONFIG? Run `npm run build`. ' +
-            'Nothing was captured from this page.',
+        // Loaded means: the streamed page replaced its skeleton, the sidebar has
+        // read its collapsed state, and every chart has drawn its surface.
+        let loaded = false;
+        for (let i = 0; i < 160 && !loaded; i++) {
+          await sleep(250);
+          loaded = await cdp.evaluate<boolean>(`(() => {
+            if (location.pathname !== ${JSON.stringify(shot.path)}) return false;
+            if (document.documentElement.dataset.theme !== ${JSON.stringify(theme)}) return false;
+            if (!document.querySelector('main#content h1')) return false;
+            if (document.querySelector('.skeleton')) return false;
+            if (!document.querySelector('.sidebar[data-ready="true"]')) return false;
+            const figures = [...document.querySelectorAll('[role=figure]')];
+            return figures.every((f) => !f.querySelector('.recharts-responsive-container')
+              || f.querySelector('svg.recharts-surface'));
+          })()`);
+        }
+        if (!loaded) throw new Error(`${shot.path} never finished rendering (signed in? demo data present?)`);
+
+        const devices = await cdp.evaluate<string[]>(
+          `[...document.querySelectorAll('.side-device')].map((a) => (a.getAttribute('aria-label') || a.textContent || '').split(',')[0].trim())`,
         );
+        const sameSet = devices.length === DEMO_DEVICES.length && DEMO_DEVICES.every((d) => devices.includes(d));
+        if (!sameSet) {
+          throw new Error(
+            `${shot.path} lists devices ${JSON.stringify(devices)}, not the demo's ${JSON.stringify(DEMO_DEVICES)}. ` +
+              'This is not the demo database -- is the build older than DATA_USAGE_CONFIG? Run `npm run build`. ' +
+              'Nothing was captured from this page.',
+          );
+        }
+
+        // CSS entry animations first; then the JS ones document.getAnimations()
+        // cannot see -- the 900 ms count-ups and the chart draw-ins.
+        for (let i = 0; i < 20; i++) {
+          const settled = await cdp.evaluate<boolean>(
+            `document.getAnimations().every((a) => a.playState === 'finished')`,
+          );
+          if (settled) break;
+          await sleep(150);
+        }
+        await sleep(1200);
+
+        // The whole page: grow the window to the document's height and capture
+        // that. `captureBeyondViewport` is not used because it renders the
+        // overflow without re-laying out the page, and the sticky sidebar and
+        // top bar are pinned to the viewport -- they would stop at 900px and
+        // leave the rest of the image without them. A window as tall as the
+        // page has neither problem. The height is re-read until it holds,
+        // because growing the window can itself move it (anything sized in vh).
+        let height = 0;
+        for (let i = 0; i < 5; i++) {
+          const h = await cdp.evaluate<number>('Math.ceil(document.documentElement.scrollHeight)');
+          if (h === height) break;
+          height = h;
+          await cdp.send('Emulation.setDeviceMetricsOverride', {
+            width: VIEWPORT.width, height, deviceScaleFactor: SCALE, mobile: false,
+          });
+          await sleep(500);
+        }
+
+        // WebP: a 2x capture of a dark UI is several times smaller than PNG at
+        // no visible cost, and the browser encodes it, so what this writes is
+        // exactly what is committed.
+        const res = (await cdp.send('Page.captureScreenshot', {
+          format: 'webp', quality: 92, captureBeyondViewport: false,
+        })) as { data: string };
+
+        // Back to the loading window, so the next page lays out as a browser would.
+        await cdp.send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: SCALE, mobile: false });
+        const file = path.join(OUT_DIR, `${shot.name}${suffix}.webp`);
+        fs.writeFileSync(file, Buffer.from(res.data, 'base64'));
+        console.log(`  ${path.relative(ROOT, file)}  ${VIEWPORT.width}x${height}  ${(fs.statSync(file).size / 1024).toFixed(0)} KB`);
       }
-
-      // CSS entry animations first; then the JS ones document.getAnimations()
-      // cannot see -- the 900 ms count-ups and the chart draw-ins.
-      for (let i = 0; i < 20; i++) {
-        const settled = await cdp.evaluate<boolean>(
-          `document.getAnimations().every((a) => a.playState === 'finished')`,
-        );
-        if (settled) break;
-        await sleep(150);
-      }
-      await sleep(1200);
-
-      // The whole page: grow the window to the document's height and capture
-      // that. `captureBeyondViewport` is not used because it renders the
-      // overflow without re-laying out the page, and the sticky sidebar and
-      // top bar are pinned to the viewport -- they would stop at 900px and
-      // leave the rest of the image without them. A window as tall as the
-      // page has neither problem. The height is re-read until it holds,
-      // because growing the window can itself move it (anything sized in vh).
-      let height = 0;
-      for (let i = 0; i < 5; i++) {
-        const h = await cdp.evaluate<number>('Math.ceil(document.documentElement.scrollHeight)');
-        if (h === height) break;
-        height = h;
-        await cdp.send('Emulation.setDeviceMetricsOverride', {
-          width: VIEWPORT.width, height, deviceScaleFactor: SCALE, mobile: false,
-        });
-        await sleep(500);
-      }
-
-      // WebP: a 2x capture of a dark UI is several times smaller than PNG at
-      // no visible cost, and the browser encodes it, so what this writes is
-      // exactly what is committed.
-      const res = (await cdp.send('Page.captureScreenshot', {
-        format: 'webp', quality: 92, captureBeyondViewport: false,
-      })) as { data: string };
-
-      // Back to the loading window, so the next page lays out as a browser would.
-      await cdp.send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: SCALE, mobile: false });
-      const file = path.join(OUT_DIR, `${shot.name}.webp`);
-      fs.writeFileSync(file, Buffer.from(res.data, 'base64'));
-      console.log(`  ${path.relative(ROOT, file)}  ${VIEWPORT.width}x${height}  ${(fs.statSync(file).size / 1024).toFixed(0)} KB`);
     }
 
     cdp.close();

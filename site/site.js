@@ -397,7 +397,7 @@ function drawStack(d) {
 }
 
 function drawHour(d) {
-  const W = 520, H = 250, L = 50, R = 6, T = 8, B = 24;
+  const W = 1000, H = 270, L = 56, R = 6, T = 8, B = 24;
   const cfg = d.cfg;
   const n = cfg.hourShape.length;
   const total = d.days.reduce((s, x) => s + (x.total ?? 0), 0);
@@ -427,7 +427,7 @@ function drawHour(d) {
 }
 
 function drawTop(d) {
-  const W = 520, L = 130, R = 14, rowH = 30, T = 4;
+  const W = 1000, L = 180, R = 14, rowH = 32, T = 4;
   const apps = d.apps.slice(0, 10);
   const H = T + apps.length * rowH + 24;
   const max = niceMax(apps[0].total * 1.04);
@@ -441,7 +441,7 @@ function drawTop(d) {
   apps.forEach((a, i) => {
     const by = T + i * rowH + 5;
     const bh = rowH - 10;
-    const name = a.name.length > 18 ? a.name.slice(0, 17) + '…' : a.name;
+    const name = a.name.length > 28 ? a.name.slice(0, 27) + '…' : a.name;
     const tip = `<b>${esc(a.name)}</b>${tipRow(ink(a.color), 'Download', fmt(a.rx))}${tipRow(ink(uploadTint(a.color)), 'Upload', fmt(a.tx))}<div style="margin-top:4px;color:var(--text-faint)">Click to open its detail page</div>`;
     s += `<text x="${L - 8}" y="${by + bh / 2 + 4}" text-anchor="end">${esc(name)}</text>`;
     s += `<g class="draw-x" style="animation-delay:${i * 40}ms;cursor:pointer" data-tip="${esc(tip)}" data-open="detail">
@@ -452,7 +452,7 @@ function drawTop(d) {
 }
 
 function drawAppDay(d) {
-  const W = 520, H = 250, L = 50, R = 6, T = 8, B = 24;
+  const W = 1000, H = 270, L = 56, R = 6, T = 8, B = 24;
   const app = d.apps.find((a) => a.name === d.cfg.detailApp);
   const up = app.up ?? d.cfg.upShare;
   const vals = app.series.slice(-60);
@@ -475,7 +475,7 @@ function drawAppDay(d) {
   const peakI = vals.reduce((b, v, i) => ((v ?? 0) > (vals[b] ?? 0) ? i : b), 0);
   document.getElementById('v-appday').innerHTML =
     callout('Heaviest day', fmtDay(days[peakI].date), fmt(vals[peakI])) +
-    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(app.name)}, daily usage over 60 days">${yAxis(max, L, W - R, T, H - B)}${bars}${xDates(days, xd, H - 6, 12)}</svg>
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(app.name)}, daily usage over 60 days">${yAxis(max, L, W - R, T, H - B)}${bars}${xDates(days, xd, H - 6, 7)}</svg>
     <div class="legend"><span><i style="background:var(--down)"></i>Download</span><span><i style="background:var(--up)"></i>Upload</span></div>`;
 }
 
@@ -639,14 +639,26 @@ function wireTooltip() {
   document.addEventListener('scroll', hide, { passive: true });
 }
 
+/** `npm run demo:shots` writes each page twice, from one history: dark, and `-light`. */
+function shotSrc(name) {
+  return `screenshots/${name}${document.documentElement.dataset.theme === 'light' ? '-light' : ''}.webp`;
+}
+
 function selectShot(btn) {
   document.querySelectorAll('.tabs [role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
   const img = document.getElementById('shot-img');
-  img.src = `screenshots/${btn.dataset.shot}.webp`;
+  img.src = shotSrc(btn.dataset.shot);
   img.alt = btn.dataset.cap;
   document.querySelector('.shot-scroll').scrollTop = 0;
   // The phone capture is in the phone's accent; the tabs follow it.
   document.getElementById('tour').dataset.device = btn.dataset.shot.startsWith('android') ? 'android' : 'windows';
+}
+
+/** The heat-map ramp and the screenshots are per theme; nothing else needs redrawing. */
+function retheme() {
+  drawAll();
+  const tab = document.querySelector('.tabs [aria-selected="true"]');
+  if (tab) document.getElementById('shot-img').src = shotSrc(tab.dataset.shot);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -654,10 +666,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     applyTheme(next);
     try { localStorage.setItem(THEME_KEY, next); } catch { /* private window: still switches */ }
-    drawAll(); // the heat-map ramp is per theme
+    retheme();
   });
   window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    if (!storedTheme()) { applyTheme(systemTheme()); drawAll(); }
+    if (!storedTheme()) { applyTheme(systemTheme()); retheme(); }
   });
 
   const tabs = document.querySelectorAll('.tabs [role="tab"]');
