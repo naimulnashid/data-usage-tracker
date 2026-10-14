@@ -79,3 +79,7 @@ scripts/task/
 
 # Local dev-server launch config is machine-specific tooling, not project code.
 .claude/
+
+# The project site build (site/build.mjs)
+site/dist/
+.vercel/
