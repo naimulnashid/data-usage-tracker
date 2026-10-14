@@ -644,7 +644,6 @@ function selectShot(btn) {
   const img = document.getElementById('shot-img');
   img.src = `screenshots/${btn.dataset.shot}.webp`;
   img.alt = btn.dataset.cap;
-  document.getElementById('shot-cap').textContent = btn.dataset.cap;
   document.querySelector('.shot-scroll').scrollTop = 0;
   // The phone capture is in the phone's accent; the tabs follow it.
   document.getElementById('tour').dataset.device = btn.dataset.shot.startsWith('android') ? 'android' : 'windows';

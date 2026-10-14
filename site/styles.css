@@ -93,7 +93,7 @@ code { font-family: 'Geist Mono', ui-monospace, Consolas, monospace; font-size: 
 h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
 :focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; border-radius: 6px; }
 
-.wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 16px; }
 @media (min-width: 720px) { .wrap { padding: 0 32px; } }
 
 .card {
@@ -153,7 +153,7 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; }
   font: 13px 'Geist Mono', ui-monospace, monospace; color: var(--text-dim);
 }
 h1 { font-size: clamp(2.3rem, 6.4vw, 4.6rem); line-height: 1.02; font-weight: 700; letter-spacing: -0.045em; }
-.lede { max-width: 700px; font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--text-dim); margin: 24px 0 0; }
+.lede { max-width: 760px; font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--text-dim); margin: 24px 0 0; }
 .lede strong { color: var(--text); font-weight: 600; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
 
@@ -182,7 +182,8 @@ h1 { font-size: clamp(2.3rem, 6.4vw, 4.6rem); line-height: 1.02; font-weight: 70
 /* ---------------------------------------------------------------- sections */
 .section { padding-top: 88px; }
 .section h2 { font-size: clamp(1.7rem, 3.6vw, 2.4rem); font-weight: 700; }
-.section-lede { color: var(--text-dim); max-width: 720px; margin: 10px 0 28px; }
+.section-lede { color: var(--text-dim); max-width: 780px; margin: 10px 0 28px; }
+.section > h2 + .flow { margin-top: 28px; }
 
 /* flow */
 .flow { display: grid; gap: 16px; grid-template-columns: 1fr; }
@@ -225,7 +226,6 @@ h1 { font-size: clamp(2.3rem, 6.4vw, 4.6rem); line-height: 1.02; font-weight: 70
 .shot { margin: 16px 0 0; overflow: hidden; }
 .shot-scroll { height: min(78vh, 760px); overflow-y: auto; background: #000; }
 .shot-scroll img { display: block; width: 100%; height: auto; }
-.shot figcaption { padding: 14px 20px; color: var(--text-dim); font-size: 15px; border-top: 1px solid var(--border); }
 
 /* chart gallery */
 .charts-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 28px; }
@@ -237,6 +237,8 @@ h1 { font-size: clamp(2.3rem, 6.4vw, 4.6rem); line-height: 1.02; font-weight: 70
 .viz h3 { font-size: 1.15rem; font-weight: 600; }
 .where { font: 12px 'Geist Mono', monospace; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
 .viz > p { color: var(--text-dim); font-size: 15px; margin: 6px 0 16px; }
+/* A card with no paragraph still needs its gap under the header. */
+.viz > header + .stats, .viz > header + .chart { margin-top: 16px; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .chart text, .svg-text { fill: var(--text-faint); font: 11px Geist, system-ui, sans-serif; }
 

@@ -88,7 +88,6 @@
 <!-- ============================================================ how -->
 <section id="how" class="section wrap">
   <h2>How it works</h2>
-  <p class="section-lede">Two independent collectors feed one database on a drive other than <code>C:</code>. The dashboard only ever reads it.</p>
 
   <div class="flow">
     <div class="lane">
@@ -126,7 +125,7 @@
 <!-- ============================================================ tour -->
 <section id="tour" class="section wrap">
   <h2>A tour of the dashboard</h2>
-  <p class="section-lede">Full-page captures, top bar to footer. Scroll inside each frame. Every number in them is invented, loaded through the real collector code by <code>npm run demo:data</code>.</p>
+  <p class="section-lede">Scroll inside the frame. Every number in these is invented, loaded through the real collector code by <code>npm run demo:data</code>.</p>
 
   <div class="tabs" role="tablist" aria-label="Dashboard pages">
     <button role="tab" aria-selected="true" aria-controls="shot" data-shot="windows-overview" data-cap="The Windows overview: all-time, 30-day, 7-day and latest-day totals; the daily trend; the six-month activity heat map; daily usage by app; usage by hour of day; one heavy app against everything else; and where the traffic went, per network.">Windows overview</button>
@@ -138,7 +137,6 @@
     <div class="shot-scroll" tabindex="0" aria-label="Screenshot, scrollable">
       <img id="shot-img" src="screenshots/windows-overview.webp" alt="" width="1440" loading="eager">
     </div>
-    <figcaption id="shot-cap"></figcaption>
   </figure>
 </section>
 
@@ -147,7 +145,7 @@
   <div class="charts-head">
     <div>
       <h2>Every chart, live</h2>
-      <p class="section-lede">Drawn here from a fixed random seed, in the dashboard's own colours. Hover for the tooltips. The switch repaints them the way the dashboard repaints a device.</p>
+      <p class="section-lede">Drawn from a fixed random seed, so every number is invented. The switch repaints them as the dashboard repaints each device.</p>
     </div>
     <div class="seg" role="radiogroup" aria-label="Device">
       <button role="radio" aria-checked="true" data-device="windows"><span class="dot dot-blue"></span>Laptop</button>
@@ -159,62 +157,60 @@
 
     <article class="viz span-2">
       <header><h3>Headline totals</h3><span class="where">Overview · App detail</span></header>
-      <p>All time, 30 days, 7 days and the latest day, each split into upload and download. Figures count up when the page loads, in tabular digits so they do not jitter.</p>
       <div class="stats" id="v-stats"></div>
     </article>
 
     <article class="viz span-2">
       <header><h3>Daily trend</h3><span class="where">Overview</span></header>
-      <p>An area chart of each day's total. A day above 2.5 times the average turns <span class="red">red</span>, the only use of red outside a failed collector run. A day never collected is a <em>break</em> in the line, not a zero. The heaviest day is called out at the top right.</p>
+      <p>A day above 2.5 times the average turns <span class="red">red</span>, the only use of red outside a failed collector run. A day never collected is a <em>break</em> in the line, not a zero.</p>
       <div class="chart" id="v-trend"></div>
     </article>
 
     <article class="viz span-2">
       <header><h3>Activity heat map</h3><span class="where">Overview · expanded Activity page</span></header>
-      <p>Six months of days, Saturday to Friday, in a five-step ramp of the device's accent. Outlined cells were never collected, which is different from a quiet day. <b>Expand</b> opens every 26-week block since collection began, stacked on one colour scale.</p>
+      <p>Outlined cells were never collected, which is different from a quiet day. <b>Expand</b> opens every 26-week block since collection began, on one colour scale.</p>
       <div class="chart" id="v-heat"></div>
     </article>
 
     <article class="viz span-2">
       <header><h3>Daily usage by app</h3><span class="where">Overview</span></header>
-      <p>A stacked area of the eight largest apps, with the rest grouped as Other. Apps keep their brand colour wherever they appear, held inside a lightness band so near-white brands stay visible in both themes.</p>
+      <p>Apps keep their brand colour wherever they appear, held inside a lightness band so near-white brands stay visible in both themes.</p>
       <div class="chart" id="v-stack"></div>
       <div class="legend" id="v-stack-legend"></div>
     </article>
 
     <article class="viz">
       <header><h3>Hour of day</h3><span class="where">Overview · App detail</span></header>
-      <p>Local time, summed over the range, download and upload stacked in two shades of one hue. On a phone the bars follow Android's two-hour buckets.</p>
+      <p>Local time, summed over the selected range. A phone reports in Android's two-hour buckets.</p>
       <div class="chart" id="v-hour"></div>
     </article>
 
     <article class="viz">
       <header><h3>Top 10</h3><span class="where">By App</span></header>
-      <p>Horizontal bars, download then upload in a tint of the app's own colour. The tint darkens instead of lightening for pale brands, so every bar stays visibly split. Each bar opens that app's detail page.</p>
+      <p>Upload is a tint of the app's colour, darker rather than lighter for pale brands so every bar stays visibly split. Each bar opens that app's detail page.</p>
       <div class="chart" id="v-top"></div>
     </article>
 
     <article class="viz">
       <header><h3>Daily usage, one app</h3><span class="where">App detail</span></header>
-      <p>Stacked daily bars for a single app (here the second-largest), with its heaviest day called out.</p>
       <div class="chart" id="v-appday"></div>
     </article>
 
     <article class="viz">
       <header><h3>One app against the rest</h3><span class="where">Laptop overview, optional</span></header>
-      <p>When one app dwarfs the others, naming it in config (<code>splitApp</code>) sets it apart, so everything else is readable at its own scale. It is a laptop setting, so this card shows the laptop in either mode.</p>
+      <p>When one app dwarfs the others, naming it in config (<code>splitApp</code>) sets it apart, so everything else is readable at its own scale. A laptop setting, so it shows the laptop in either mode.</p>
       <div id="v-split"></div>
     </article>
 
     <article class="viz span-2">
       <header><h3>Where it went</h3><span class="where">Overview · App detail</span></header>
-      <p>The laptop splits Wi-Fi against wired, the phone Wi-Fi against mobile data, then lists every network with its share. Network names on the laptop are learned by watching which network it is on; on a phone they come from a USB capture, and traffic over a VPN is shown apart rather than guessed at.</p>
+      <p>Network names on the laptop are learned by watching which network it is on; on a phone they come from a USB capture, and traffic over a VPN is shown apart rather than guessed at.</p>
       <div id="v-where"></div>
     </article>
 
     <article class="viz span-2">
       <header><h3>The app table</h3><span class="where">By App</span></header>
-      <p>Every app with enough activity for a detail page, expandable to every app ever seen. Sort by any column; click a header again to reverse it. Share bars use the app's colour, and kind badges mark store apps and Windows services.</p>
+      <p>Lists every app with enough activity for a detail page, expandable to every app ever seen. Click a header to sort, again to reverse.</p>
       <div id="v-table"></div>
     </article>
 
