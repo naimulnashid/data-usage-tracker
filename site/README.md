@@ -9,7 +9,10 @@ charts are drawn in the browser from a fixed random seed, so they are the
 same on every load and are nobody's usage. The dashboard screenshots come
 from `docs/screenshots/`, which `npm run demo:shots` regenerates in both
 themes from one history; the page shows the set matching its own theme, and
-the build copies them in rather than keeping a second set here.
+the build copies them in rather than keeping a second set here. It copies
+`docs/social-preview.png` (the repository's social card) in the same way, as
+the link preview image; the preview tags use absolute URLs to the deployed
+address, since link unfurlers need them.
 
 **Phones get the desktop layout, zoomed to fit**, as the dashboard does: the
 viewport tag is `width=1024` with no initial scale, so a phone lays the page
@@ -37,8 +40,9 @@ command and output folder, and the security headers. Vercel's build can read
 files outside the root directory, which is how the screenshots get in.
 
 **A push builds only when the site could have changed**: something under
-`site/` or `docs/screenshots/` differs from the last successful deployment
-(`ignoreCommand`; exit 0 skips, anything else builds). With no previous
+`site/`, `docs/screenshots/` or `docs/social-preview.png` differs from the
+last successful deployment (`ignoreCommand`; exit 0 skips, anything else
+builds). With no previous
 deployment, or one whose commit is not in Vercel's clone, the command fails
 and the build runs, so it errs towards building. Any other folder the site
 starts reading from must be added to that path list.
