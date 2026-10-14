@@ -327,8 +327,6 @@ td.total { font-weight: 600; }
 .chip { font: 13px 'Geist Mono', monospace; color: var(--text-dim); padding: 6px 12px; border-radius: 8px; background: var(--bg-panel); border: 1px solid var(--border); }
 .req { margin-top: 20px; padding: 16px 20px; display: grid; gap: 6px; color: var(--text-dim); font-size: 15px; }
 .req b { color: var(--text); font-weight: 600; margin-right: 6px; }
-.links-h { margin-top: 36px; font-size: 1.15rem; font-weight: 600; }
-.links-h + .hero-cta { margin-top: 12px; }
 
 .foot { margin-top: 96px; border-top: 1px solid var(--border); }
 .foot-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 22px; padding-bottom: 28px; font-size: 13px; color: var(--text-faint); }
