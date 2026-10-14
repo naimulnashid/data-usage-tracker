@@ -30,4 +30,11 @@ comes from `site/vercel.json`: no framework, no install step, the build
 command and output folder, and the security headers. Vercel's build can read
 files outside the root directory, which is how the screenshots get in.
 
+**A push builds only when the site could have changed**: something under
+`site/` or `docs/screenshots/` differs from the last successful deployment
+(`ignoreCommand`; exit 0 skips, anything else builds). With no previous
+deployment, or one whose commit is not in Vercel's clone, the command fails
+and the build runs, so it errs towards building. Any other folder the site
+starts reading from must be added to that path list.
+
 `?device=android` opens the chart gallery on the phone instead of the laptop.
