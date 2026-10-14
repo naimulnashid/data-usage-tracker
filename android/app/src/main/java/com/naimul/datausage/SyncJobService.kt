@@ -45,27 +45,47 @@ class SyncJobService : JobService() {
         private const val JOB_ID = 4711
 
         /**
-         * Idempotent: re-registering with the same id REPLACES the existing
-         * job, which is also how a settings change takes effect. Calling this
+         * Books the job, or re-books it when its settings changed. Calling this
          * from the activity, the settings controls and the boot receiver is
          * therefore all safe and all necessary.
+         *
+         * **An unchanged job is left alone.** Re-registering a periodic job
+         * makes it due at once, so a Sync now press -- which saves the settings
+         * first -- started this job's sync beside the button's own, and both
+         * sent the same window. About a quarter of uploads (2026-10-15) arrived
+         * as a second or third copy within 5 s. A settings change still re-books
+         * it, and runs a sync then, which is fine.
          */
         fun schedule(context: Context) {
             val prefs = Prefs(context)
             val scheduler = context.getSystemService(JobScheduler::class.java)
-            val job = JobInfo.Builder(JOB_ID, ComponentName(context, SyncJobService::class.java))
-                .setRequiredNetworkType(
-                    // ANY still means "some network", not "no constraint" - the
-                    // job will not fire offline either way.
-                    if (prefs.allowMetered) JobInfo.NETWORK_TYPE_ANY
-                    else JobInfo.NETWORK_TYPE_UNMETERED,
-                )
-                .setPeriodic(prefs.syncHours * 60L * 60L * 1000L)
-                .setPersisted(true)
-                .build()
-            scheduler.schedule(job)
+            // ANY still means "some network", not "no constraint" - the job
+            // will not fire offline either way.
+            val network = if (prefs.allowMetered) JobInfo.NETWORK_TYPE_ANY else JobInfo.NETWORK_TYPE_UNMETERED
+            val interval = prefs.syncHours * 60L * 60L * 1000L
+            if (!isBooked(scheduler.getPendingJob(JOB_ID), interval, network)) {
+                val job = JobInfo.Builder(JOB_ID, ComponentName(context, SyncJobService::class.java))
+                    .setRequiredNetworkType(network)
+                    .setPeriodic(interval)
+                    .setPersisted(true)
+                    .build()
+                scheduler.schedule(job)
+            }
             // Every caller that books the sync also wants it watched.
             SyncWatch.schedule(context)
+        }
+
+        /**
+         * Whether [pending] is already the job [schedule] would book. Any
+         * doubt counts as "no", which re-books it: the old behaviour, never a
+         * missing job.
+         */
+        private fun isBooked(pending: JobInfo?, interval: Long, network: Int): Boolean {
+            if (pending == null || !pending.isPeriodic || !pending.isPersisted) return false
+            // Deprecated in API 28 for getRequiredNetwork(), and still derived
+            // from it there; it is the one accessor every minSdk has.
+            @Suppress("DEPRECATION")
+            return pending.intervalMillis == interval && pending.networkType == network
         }
 
         /**

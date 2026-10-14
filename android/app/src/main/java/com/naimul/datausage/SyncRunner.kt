@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * One sync, start to finish. Shared by the button and the periodic job so they
@@ -15,7 +16,22 @@ class SyncRunner(private val context: Context) {
 
     data class Outcome(val ok: Boolean, val message: String)
 
+    /**
+     * One sync at a time, per process. The button and the job each run on a
+     * thread of their own, and two at once read the same window and send it
+     * twice. The loser returns without touching the last result: the sync
+     * already running is the one that will report.
+     */
     fun runOnce(): Outcome {
+        if (!running.compareAndSet(false, true)) return Outcome(true, ALREADY_RUNNING)
+        return try {
+            runLocked()
+        } finally {
+            running.set(false)
+        }
+    }
+
+    private fun runLocked(): Outcome {
         val prefs = Prefs(context)
         if (!prefs.isConfigured) return finish(prefs, false, "Server address and token not set")
         // An address saved by 1.4 or older was never checked. With the cloud
@@ -78,6 +94,10 @@ class SyncRunner(private val context: Context) {
 
     companion object {
         private const val TWO_HOURS = 2 * 60 * 60 * 1000L
+
+        private val running = AtomicBoolean(false)
+
+        private const val ALREADY_RUNNING = "A sync is already running"
 
         private const val PHONE_STATE_MISSING =
             "Phone permission not granted (needed to read mobile data on Android 9 and older)"
