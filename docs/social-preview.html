@@ -69,6 +69,8 @@
     background: rgba(10, 10, 11, 0.7);
   }
   .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .pill--site { color: var(--text); border-color: rgba(77, 151, 255, 0.45); }
+  .pill--site svg { width: 18px; height: 18px; fill: none; stroke: var(--blue-bright); stroke-width: 1.8; }
 
   h1 {
     font-size: 92px; line-height: 0.98; font-weight: 700; letter-spacing: -0.045em;
@@ -119,9 +121,11 @@
 <body>
 <div class="frame">
   <section class="copy">
+    <!-- The project site. Windows and Android are already named on the cards. -->
     <div class="pills">
-      <span class="pill"><span class="dot" style="background: var(--blue)"></span>Windows</span>
-      <span class="pill"><span class="dot" style="background: var(--green)"></span>Android</span>
+      <span class="pill pill--site">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg>data-usage-tracker-site.vercel.app
+      </span>
     </div>
 
     <div>

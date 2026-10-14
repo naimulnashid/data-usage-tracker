@@ -3,6 +3,7 @@
 [![CI](https://github.com/naimulnashid/data-usage-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/naimulnashid/data-usage-tracker/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/naimulnashid/data-usage-tracker)](https://github.com/naimulnashid/data-usage-tracker/releases/latest)
 [![MIT license](https://img.shields.io/github/license/naimulnashid/data-usage-tracker)](LICENSE)
+[![Project site](https://img.shields.io/website?url=https%3A%2F%2Fdata-usage-tracker-site.vercel.app&label=project%20site&up_message=online&down_message=offline)](https://data-usage-tracker-site.vercel.app/)
 
 A local dashboard that makes per-app network usage history **permanent**, for a
 Windows PC and, optionally, Android phones.
