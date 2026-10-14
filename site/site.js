@@ -442,9 +442,9 @@ function drawTop(d) {
     const by = T + i * rowH + 5;
     const bh = rowH - 10;
     const name = a.name.length > 28 ? a.name.slice(0, 27) + '…' : a.name;
-    const tip = `<b>${esc(a.name)}</b>${tipRow(ink(a.color), 'Download', fmt(a.rx))}${tipRow(ink(uploadTint(a.color)), 'Upload', fmt(a.tx))}<div style="margin-top:4px;color:var(--text-faint)">Click to open its detail page</div>`;
+    const tip = `<b>${esc(a.name)}</b>${tipRow(ink(a.color), 'Download', fmt(a.rx))}${tipRow(ink(uploadTint(a.color)), 'Upload', fmt(a.tx))}${tourShown() ? '<div style="margin-top:4px;color:var(--text-faint)">Click to open its detail page</div>' : ''}`;
     s += `<text x="${L - 8}" y="${by + bh / 2 + 4}" text-anchor="end">${esc(name)}</text>`;
-    s += `<g class="draw-x" style="animation-delay:${i * 40}ms;cursor:pointer" data-tip="${esc(tip)}" data-open="detail">
+    s += `<g class="draw-x" style="animation-delay:${i * 40}ms;cursor:${tourShown() ? 'pointer' : 'default'}" data-tip="${esc(tip)}" data-open="detail">
       <rect x="${L}" y="${by}" width="${x(a.rx) - L}" height="${bh}" fill="${ink(a.color)}"/>
       <rect x="${x(a.rx)}" y="${by}" width="${Math.max(2, x(a.total) - x(a.rx))}" height="${bh}" fill="${ink(uploadTint(a.color))}" rx="4"/></g>`;
   });
@@ -639,6 +639,10 @@ function wireTooltip() {
   document.addEventListener('scroll', hide, { passive: true });
 }
 
+/** The tour is hidden pending review (see index.html); while it is, a Top 10
+    bar opens nothing, so it neither says so nor looks clickable. */
+const tourShown = () => !document.getElementById('tour')?.hidden;
+
 /** `npm run demo:shots` writes each page twice, from one history: dark, and `-light`. */
 function shotSrc(name) {
   return `screenshots/${name}${document.documentElement.dataset.theme === 'light' ? '-light' : ''}.webp`;
@@ -687,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (asked === 'android') pickDevice(document.querySelector('.seg [data-device="android"]'));
 
   document.getElementById('gallery').addEventListener('click', (e) => {
-    if (!e.target.closest('[data-open="detail"]')) return;
+    if (!e.target.closest('[data-open="detail"]') || !tourShown()) return;
     selectShot(document.querySelector(`[data-shot="${device === 'android' ? 'android-overview' : 'windows-app-detail'}"]`));
     document.getElementById('tour').scrollIntoView();
   });

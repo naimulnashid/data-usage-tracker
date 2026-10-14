@@ -17,8 +17,8 @@ This project copies both into a SQLite database on a drive that survives a
 reset, and shows them in a Next.js dashboard that runs on your own machine.
 
 **[See it on the project site](https://data-usage-tracker-site.vercel.app/)**:
-how it works, a tour of the dashboard, every chart it draws (live, on
-invented data) and every feature.
+how it works, every chart it draws (live, on invented data) and every
+feature.
 
 - **Local only.** No cloud service, no account, no telemetry, no outbound
   requests. The dashboard listens on `127.0.0.1` unless you open it to your

@@ -39,7 +39,7 @@
     </a>
     <nav class="top-links" aria-label="Sections">
       <a href="#how">How it works</a>
-      <a href="#tour">Tour</a>
+      <!-- Tour hidden, pending review: <a href="#tour">Tour</a> -->
       <a href="#charts">Charts</a>
       <a href="#features">Features</a>
     </nav>
@@ -73,7 +73,7 @@
   </p>
   <div class="hero-cta">
     <a class="btn btn-solid" href="https://github.com/naimulnashid/data-usage-tracker#setup">Set it up</a>
-    <a class="btn" href="#tour">See the dashboard</a>
+    <a class="btn" href="#charts">See the dashboard</a><!-- was #tour; the tour is hidden, pending review -->
   </div>
 
   <div class="retention card" role="figure" aria-label="How much history each source keeps">
@@ -138,7 +138,13 @@
 </section>
 
 <!-- ============================================================ tour -->
-<section id="tour" class="section wrap">
+<!-- HIDDEN 2026-10-15 at the owner's request, pending review; nothing below is
+     deleted. To restore: remove `hidden` from this section, uncomment the
+     Tour link in the top bar, and point the hero's second button back at
+     #tour.
+     site.js's tourShown() then turns the Top 10 bars' click-to-open
+     back on by itself. -->
+<section id="tour" class="section wrap" hidden>
   <h2>A tour of the dashboard</h2>
   <p class="section-lede">Scroll inside the frame. Every number in these is invented, loaded through the real collector code by <code>npm run demo:data</code>.</p>
 
@@ -150,7 +156,7 @@
   </div>
   <figure class="shot card" id="shot">
     <div class="shot-scroll" tabindex="0" aria-label="Screenshot, scrollable">
-      <img id="shot-img" src="screenshots/windows-overview.webp" alt="" width="1440" loading="eager">
+      <img id="shot-img" src="screenshots/windows-overview.webp" alt="" width="1440" loading="lazy">
     </div>
   </figure>
 </section>

@@ -1,14 +1,19 @@
 # Project site
 
 A one-page site that shows what this project is and does, for people who
-find the repository: the problem it solves, how the collectors work, the
-dashboard's pages, every chart it draws, and every feature.
+find the repository: the problem it solves, how the collectors work, every
+chart it draws, and every feature.
+
+**The screenshot tour is hidden** (2026-10-15, pending the owner's review):
+its section, nav link and script are all kept, and the comment above
+`<section id="tour">` in `index.html` says how to bring it back.
 
 Plain HTML, CSS and one script, with no framework and no dependencies. The
 charts are drawn in the browser from a fixed random seed, so they are the
 same on every load and are nobody's usage. The dashboard screenshots come
 from `docs/screenshots/`, which `npm run demo:shots` regenerates in both
-themes from one history; the page shows the set matching its own theme, and
+themes from one history; the (hidden) tour shows the set matching the
+page's theme, and
 the build copies them in rather than keeping a second set here. It copies
 `docs/social-preview.png` (the repository's social card) in the same way, as
 the link preview image; the preview tags use absolute URLs to the deployed
