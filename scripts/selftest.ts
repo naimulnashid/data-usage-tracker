@@ -42,6 +42,12 @@ import { LoginThrottle, DEFAULT_THROTTLE } from '../src/lib/login-throttle.js';
 import {
   issueSession, verifySession, passwordStatus, MIN_PASSWORD_LENGTH,
 } from '../src/lib/auth.js';
+import {
+  sealEnvelope, openEnvelope, envelopeJson, newInboxKeyPem, publicKeyB64, fingerprint, uploadBearer,
+} from '../src/lib/inbox.js';
+import { openDatabase, hasColumn } from '../src/lib/db.js';
+import { createPrivateKey } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -280,6 +286,7 @@ async function main(): Promise<void> {
   }
 
   androidChecks();
+  inboxChecks();
   dayChecks();
   heatmapChecks();
   await securityChecks();
@@ -564,6 +571,73 @@ function androidChecks(): void {
       ...androidPayload(),
       buckets: [{ uid: 1, start: T, network: 'wifi', metered: false, roaming: false, rx: -1, tx: 1 }],
     }, 'negative bytes');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Cloud inbox                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The envelope format in lib/inbox.ts. The Kotlin side (Sealer.kt) writes the
+ * same bytes; that pairing was checked by compiling Sealer.kt on a desktop JVM
+ * and opening its envelopes here, which this test cannot repeat without a
+ * Kotlin compiler. What it can pin down is that every way of getting an
+ * envelope wrong fails, and fails closed.
+ */
+function inboxChecks(): void {
+  console.log('\n== cloud inbox ==');
+  const key = createPrivateKey(newInboxKeyPem());
+  const pub = publicKeyB64(key);
+  const token = 'selftest-ingest-token-0123456789';
+  const payload = { deviceId: 'selftest-phone', utcOffsetMinutes: 360, apps: [], buckets: [] };
+  const plain = gzipSync(Buffer.from(JSON.stringify(payload)));
+  const env = sealEnvelope(plain, pub, token);
+
+  check('an envelope opens to what was sealed',
+    (envelopeJson(env, key, token) as { deviceId: string }).deviceId === 'selftest-phone');
+  check('an envelope starts with DUI1', env.subarray(0, 4).toString('ascii') === 'DUI1');
+  check('two envelopes of one upload differ (fresh key and nonce)',
+    !sealEnvelope(plain, pub, token).equals(env));
+
+  const fails = (name: string, f: () => unknown) => {
+    let threw = false;
+    try { f(); } catch { threw = true; }
+    check(name, threw);
+  };
+  fails('another ingest token cannot open it (a forgery sealed to the public key)',
+    () => openEnvelope(sealEnvelope(plain, pub, 'someone-else-entirely'), key, token));
+  fails('another laptop key cannot open it',
+    () => openEnvelope(env, createPrivateKey(newInboxKeyPem()), token));
+  for (const at of [2, 10, 4 + 65 + 3, env.length - 20, env.length - 1]) {
+    const bad = Buffer.from(env);
+    bad[at] = bad[at]! ^ 0x01;
+    fails(`a flipped bit at byte ${at} is refused`, () => openEnvelope(bad, key, token));
+  }
+  fails('a truncated envelope is refused', () => openEnvelope(env.subarray(0, 60), key, token));
+
+  check('the upload bearer is not the token', uploadBearer(token) !== token && /^[0-9a-f]{64}$/.test(uploadBearer(token)));
+  check('the upload bearer is stable', uploadBearer(token) === uploadBearer(token));
+  check('a fingerprint is four groups of four hex digits', /^[0-9A-F]{4}( [0-9A-F]{4}){3}$/.test(fingerprint(pub)));
+
+  // landed_at (schema 7) on a database written before it existed.
+  const dir = mkdtempSync(join(tmpdir(), 'du-inbox-'));
+  try {
+    const path = join(dir, 'old.db');
+    const old = new DatabaseSync(path);
+    old.exec(`CREATE TABLE android_sync_log (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id TEXT NOT NULL,
+      received_at TEXT NOT NULL, status TEXT NOT NULL, buckets_sent INTEGER NOT NULL DEFAULT 0,
+      rows_written INTEGER NOT NULL DEFAULT 0, rows_updated INTEGER NOT NULL DEFAULT 0,
+      apps_sent INTEGER NOT NULL DEFAULT 0, oldest_bucket TEXT, newest_bucket TEXT, app_version TEXT, error TEXT)`);
+    check('a schema-6 sync log has no landed_at', !hasColumn(old, 'android_sync_log', 'landed_at'));
+    old.close();
+    const db = openDatabase(path, { allowSystemDrive: true });
+    check('opening it for writing adds landed_at', hasColumn(db, 'android_sync_log', 'landed_at'));
+    db.close();
+    const again = openDatabase(path, { allowSystemDrive: true }); // must not try to add it twice
+    again.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

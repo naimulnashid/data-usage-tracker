@@ -187,7 +187,15 @@ export default async function AndroidSyncPage({
                   {/* nowrap, as on the Windows run history: on a phone the
                       date broke into lines and each row reached 109px, while
                       the table scrolled sideways regardless. */}
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.receivedAt)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {formatDateTime(r.receivedAt)}
+                    {r.landedAt && (
+                      // Sent to the cloud inbox, collected by the laptop later.
+                      <div className="callout-sub" title={`Reached the database ${formatDateTime(r.landedAt)}`}>
+                        via inbox · landed {formatDateTime(r.landedAt)}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <span className={`badge ${r.status === 'success' ? 'badge--ok' : 'badge--bad'}`}>
                       {r.status}

@@ -1,6 +1,6 @@
 {
   "name": "data-usage-tracker",
-  "version": "3.4.1",
+  "version": "3.5.0",
   "private": true,
   "description": "Local dashboard that keeps Windows (and optionally Android) per-app network usage history permanently, across OS resets.",
   "license": "MIT",
@@ -16,6 +16,7 @@
     "android:validate": "tsx scripts/android-validate.ts",
     "android:ssid": "tsx scripts/android-ssid-collect.ts",
     "android:merge": "tsx scripts/android-merge-device.ts",
+    "inbox": "tsx scripts/inbox.ts",
     "typecheck": "tsc --noEmit",
     "dev": "node scripts/run-next.mjs dev",
     "build": "node scripts/run-next.mjs build",

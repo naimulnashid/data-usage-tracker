@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The framework's own Material theme, not AppCompat or Material Components:
+      the app has no dependencies (see build.gradle.kts). Only what the code in
+      Ui.kt cannot set per view lives here: the accent that colours cursors,
+      text selection and dialog buttons, the black window behind everything,
+      and transparent system bars, because MainActivity draws edge to edge.
+    -->
+    <style name="Theme.Reporter" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:colorAccent">#3DDC84</item>
+        <item name="android:colorPrimary">#000000</item>
+        <item name="android:colorPrimaryDark">#000000</item>
+        <item name="android:colorControlActivated">#3DDC84</item>
+        <item name="android:colorControlHighlight">#223DDC84</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:alertDialogTheme">@style/Theme.Reporter.Dialog</item>
+    </style>
+
+    <!-- The confirmations (turn off the inbox, full resync): the card colour,
+         not the framework's mid grey. -->
+    <style name="Theme.Reporter.Dialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#3DDC84</item>
+        <item name="android:colorBackground">#16181B</item>
+        <item name="android:textColorPrimary">#F2F2F5</item>
+        <item name="android:textColorSecondary">#A9A9B4</item>
+    </style>
+</resources>

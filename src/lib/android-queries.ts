@@ -21,6 +21,7 @@ import 'server-only';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
 import { configPath } from './config-path';
+import { hasColumn } from './db';
 import { assignColors, type AppColorMap } from './app-colors';
 import { readRenames } from './app-renames';
 import { readColorOverrides } from './app-color-overrides';
@@ -384,7 +385,10 @@ export const SYNC_CRITICAL_HOURS = 60 * 24;
 export const RETENTION_DAYS = 90;
 
 export interface AndroidSyncRun {
+  /** When the phone sent it. */
   receivedAt: string;
+  /** When it reached the database, for an upload that came via the cloud inbox. */
+  landedAt: string | null;
   status: string;
   bucketsSent: number;
   rowsWritten: number;
@@ -413,18 +417,26 @@ export interface AndroidSyncStatus {
 
 export function getAndroidSyncStatus(deviceId: string, limit = 25, offset = 0): AndroidSyncStatus {
   return withDb((db) => {
+    // landed_at arrived in schema 7, and this connection is read-only, so a
+    // database no write has touched since then does not have it yet.
+    //
+    // Every query here orders by received_at, when the PHONE sent the upload,
+    // not by id. Uploads drained from the cloud inbox are written when the
+    // laptop next runs, so their ids come after direct uploads they predate.
+    const landed = hasColumn(db, 'android_sync_log', 'landed_at') ? 'landed_at' : 'NULL';
     const runs = (
       db
         .prepare(
-          `SELECT received_at r, status s, buckets_sent b, rows_written w,
+          `SELECT received_at r, ${landed} l, status s, buckets_sent b, rows_written w,
                   rows_updated u, error e
-           FROM android_sync_log WHERE ${OF_DEVICE} ORDER BY id DESC LIMIT ? OFFSET ?`,
+           FROM android_sync_log WHERE ${OF_DEVICE} ORDER BY received_at DESC, id DESC LIMIT ? OFFSET ?`,
         )
         .all(deviceId, limit, offset) as {
-        r: string; s: string; b: number; w: number; u: number; e: string | null;
+        r: string; l: string | null; s: string; b: number; w: number; u: number; e: string | null;
       }[]
     ).map((x) => ({
       receivedAt: x.r,
+      landedAt: x.l,
       status: x.s,
       bucketsSent: Number(x.b),
       rowsWritten: Number(x.w),
@@ -437,13 +449,13 @@ export function getAndroidSyncStatus(deviceId: string, limit = 25, offset = 0): 
     );
 
     const lastOk = db
-      .prepare(`SELECT received_at r FROM android_sync_log WHERE ${OF_DEVICE} AND status = 'success' ORDER BY id DESC LIMIT 1`)
+      .prepare(`SELECT received_at r FROM android_sync_log WHERE ${OF_DEVICE} AND status = 'success' ORDER BY received_at DESC, id DESC LIMIT 1`)
       .get(deviceId) as { r: string } | undefined;
 
     // Counted from the newest run backwards, so one failure followed by a
     // success reads as recovered rather than as an outstanding problem.
     const recent = db
-      .prepare(`SELECT status s FROM android_sync_log WHERE ${OF_DEVICE} ORDER BY id DESC LIMIT 40`)
+      .prepare(`SELECT status s FROM android_sync_log WHERE ${OF_DEVICE} ORDER BY received_at DESC, id DESC LIMIT 40`)
       .all(deviceId) as { s: string }[];
     let consecutiveFailures = 0;
     for (const r of recent) {
@@ -509,7 +521,7 @@ export function getAndroidLastSuccess(
     const row = db
       .prepare(
         `SELECT received_at r FROM android_sync_log
-         WHERE ${OF_DEVICE} AND status = 'success' ORDER BY id DESC LIMIT 1`,
+         WHERE ${OF_DEVICE} AND status = 'success' ORDER BY received_at DESC, id DESC LIMIT 1`,
       )
       .get(deviceId) as { r: string } | undefined;
 

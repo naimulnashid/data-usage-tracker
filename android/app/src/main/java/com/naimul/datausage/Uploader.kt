@@ -4,6 +4,7 @@ import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedOutputStream
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -12,14 +13,21 @@ import java.util.TimeZone
 import java.util.zip.GZIPOutputStream
 
 /**
- * Sending a batch to the dashboard.
+ * Sending a batch to the dashboard, or to the cloud inbox.
  *
  * `HttpURLConnection` rather than OkHttp: see the no-dependencies note in
- * build.gradle.kts. This posts one JSON body and reads one back.
+ * build.gradle.kts. This posts one body and reads one back.
+ *
+ * With the cloud inbox on (`prefs.usesInbox`), the same gzipped JSON is sealed
+ * to the laptop's key (Sealer) and posted to the inbox, which stores it until
+ * the laptop collects it. Nothing else about an upload changes.
  */
 class Uploader(private val prefs: Prefs) {
 
     data class Result(val ok: Boolean, val message: String, val acceptedThrough: Long?)
+
+    /** What the dashboard hands out for "Set up cloud inbox". */
+    data class InboxSetup(val url: String, val publicKey: String, val fingerprint: String)
 
     /**
      * Refuse to send cleartext anywhere but the local network.
@@ -63,6 +71,7 @@ class Uploader(private val prefs: Prefs) {
     }
 
     fun test(): Result {
+        if (prefs.usesInbox) return testInbox()
         val url = URL("${prefs.serverUrl}/api/android/ingest")
         assertPrivateIfCleartext(url)
         val conn = open(url, "GET")
@@ -75,10 +84,62 @@ class Uploader(private val prefs: Prefs) {
         }
     }
 
+    private fun testInbox(): Result {
+        val conn = open(URL(prefs.inboxUrl), "GET", Sealer.uploadBearer(prefs.token))
+        return try {
+            val code = conn.responseCode
+            val body = readBody(conn)
+            val isInbox = code == 200 && try {
+                JSONObject(body).optBoolean("inbox")
+            } catch (e: Exception) {
+                false
+            }
+            Result(isInbox, if (isInbox) "Cloud inbox reachable" else "Cloud inbox: HTTP $code: $body", null)
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /**
+     * Ask the dashboard, over the LAN, where its cloud inbox is and which key
+     * to seal to. Fetched from the dashboard rather than typed in or taken
+     * from the inbox: the inbox is exactly the party that must not be able to
+     * substitute its own key.
+     */
+    fun fetchInboxSetup(): InboxSetup {
+        val url = URL("${prefs.serverUrl}/api/android/ingest")
+        assertPrivateIfCleartext(url)
+        val conn = open(url, "GET")
+        try {
+            val code = conn.responseCode
+            val body = readBody(conn)
+            if (code != 200) throw IllegalStateException("Dashboard: HTTP $code: $body")
+            val inbox = JSONObject(body).optJSONObject("inbox")
+                ?: throw IllegalStateException(
+                    "The dashboard has no cloud inbox set up, or is older than 3.5.0",
+                )
+            inbox.optString("error").takeIf { it.isNotEmpty() }?.let {
+                throw IllegalStateException("The dashboard's inbox is misconfigured: $it")
+            }
+            val setup = InboxSetup(
+                inbox.getString("url"), inbox.getString("publicKey"), inbox.getString("fingerprint"),
+            )
+            // The inbox is on the internet, so cleartext is never acceptable.
+            if (!setup.url.startsWith("https://")) {
+                throw IllegalStateException("Refusing an inbox address that is not https: ${setup.url}")
+            }
+            Sealer.parseKey(setup.publicKey) // throws on anything but a P-256 key
+            return setup
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     fun upload(
         buckets: List<UsageReader.Bucket>,
         apps: List<UsageReader.AppInfo>,
     ): Result {
+        if (prefs.usesInbox) return uploadToInbox(buckets, apps)
         val url = URL("${prefs.serverUrl}/api/android/ingest")
         assertPrivateIfCleartext(url)
 
@@ -112,7 +173,51 @@ class Uploader(private val prefs: Prefs) {
         }
     }
 
-    private fun open(url: URL, method: String): HttpURLConnection {
+    private fun uploadToInbox(
+        buckets: List<UsageReader.Bucket>,
+        apps: List<UsageReader.AppInfo>,
+    ): Result {
+        val json = buildPayload(buckets, apps).toString().toByteArray(Charsets.UTF_8)
+        val zipped = ByteArrayOutputStream().also { out ->
+            GZIPOutputStream(out).use { it.write(json) }
+        }.toByteArray()
+        val envelope = Sealer.seal(zipped, Sealer.parseKey(prefs.inboxKey), prefs.token)
+
+        val conn = open(URL(prefs.inboxUrl), "POST", Sealer.uploadBearer(prefs.token))
+        conn.setRequestProperty("Content-Type", "application/octet-stream")
+        // Lets the dashboard say which phone an envelope it cannot open came from.
+        conn.setRequestProperty("X-Device-Hint", prefs.deviceId)
+        conn.doOutput = true
+        conn.setFixedLengthStreamingMode(envelope.size)
+
+        return try {
+            conn.outputStream.use { it.write(envelope) }
+            val code = conn.responseCode
+            val text = readBody(conn)
+            if (code != 200) return Result(false, "Cloud inbox: HTTP $code: $text", null)
+            val reply = JSONObject(text)
+            if (!reply.optBoolean("ok") || !reply.optBoolean("inbox")) {
+                return Result(false, reply.optString("error", "rejected by the cloud inbox"), null)
+            }
+            /*
+              The inbox cannot read what it stored, so it cannot say what it
+              accepted; the newest bucket SENT stands in for it. That is the
+              same value the dashboard would have confirmed (its acceptedThrough
+              is the newest bucket start it wrote), and the inbox only answers
+              200 once the envelope is stored. If the laptop later rejects it,
+              the Sync page says so and "Full resync" sends the window again.
+            */
+            Result(
+                ok = true,
+                message = "${buckets.size} buckets sent to the cloud inbox",
+                acceptedThrough = buckets.maxOfOrNull { it.start },
+            )
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun open(url: URL, method: String, bearer: String = prefs.token): HttpURLConnection {
         val conn = url.openConnection() as HttpURLConnection
         // Never follow a redirect. assertPrivateIfCleartext vets the address the
         // user typed, and a followed redirect would carry the request -- bearer
@@ -120,7 +225,7 @@ class Uploader(private val prefs: Prefs) {
         // redirect this endpoint, so a 3xx is itself worth reporting.
         conn.instanceFollowRedirects = false
         conn.requestMethod = method
-        conn.setRequestProperty("Authorization", "Bearer ${prefs.token}")
+        conn.setRequestProperty("Authorization", "Bearer $bearer")
         conn.setRequestProperty("Accept", "application/json")
         conn.connectTimeout = 10_000
         conn.readTimeout = 60_000

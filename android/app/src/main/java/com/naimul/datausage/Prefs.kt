@@ -35,6 +35,23 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putString(KEY_TOKEN, v.trim()).apply()
 
     /**
+     * The cloud inbox's address, and the laptop key uploads are sealed to.
+     * Both come from the dashboard in one tap ("Set up cloud inbox") and are
+     * set or cleared together. While set, uploads go to the inbox and the
+     * dashboard address above is only used to set it up again.
+     */
+    var inboxUrl: String
+        get() = sp.getString(KEY_INBOX_URL, "") ?: ""
+        set(v) = sp.edit().putString(KEY_INBOX_URL, v.trim().trimEnd('/')).apply()
+
+    var inboxKey: String
+        get() = sp.getString(KEY_INBOX_KEY, "") ?: ""
+        set(v) = sp.edit().putString(KEY_INBOX_KEY, v.trim()).apply()
+
+    val usesInbox: Boolean
+        get() = inboxUrl.isNotEmpty() && inboxKey.isNotEmpty()
+
+    /**
      * Epoch ms of the newest bucket the SERVER confirmed it stored.
      *
      * Advanced from the response, never from what was sent: a upload that fails
@@ -93,7 +110,7 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putLong(KEY_WATCH_SINCE, v).apply()
 
     val isConfigured: Boolean
-        get() = serverUrl.isNotEmpty() && token.isNotEmpty()
+        get() = token.isNotEmpty() && (usesInbox || serverUrl.isNotEmpty())
 
     companion object {
         const val DEFAULT_HOURS = 6
@@ -106,6 +123,8 @@ class Prefs(context: Context) {
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_URL = "server_url"
         const val KEY_TOKEN = "token"
+        private const val KEY_INBOX_URL = "inbox_url"
+        private const val KEY_INBOX_KEY = "inbox_key"
         const val KEY_THROUGH = "synced_through"
         const val KEY_RESULT = "last_result"
         const val KEY_RESULT_AT = "last_result_at"

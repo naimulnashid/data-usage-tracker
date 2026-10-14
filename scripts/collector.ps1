@@ -103,8 +103,27 @@ function Record-Failure {
     }
 }
 
+# Empty the phones' cloud inbox, when config has one (scripts/inbox.ts). Its
+# own step, outside the SRUM run: a failed snapshot is no reason to leave the
+# phones' uploads waiting, and a failed drain is no reason to fail the run --
+# the envelopes stay in the inbox for the next one.
+function Invoke-InboxDrain {
+    try {
+        if (-not $script:nodeExe -or -not (Test-Path $script:inboxScript)) { return }
+        Push-Location $root
+        try {
+            $r = Invoke-Native $script:nodeExe @('--import', 'tsx', $script:inboxScript, 'drain', '--if-configured')
+        } finally { Pop-Location }
+        $r.Output | ForEach-Object { Write-Log "  $_" }
+        if ($r.ExitCode -ne 0) { Write-Log "inbox drain exited $($r.ExitCode)" 'WARN' }
+    } catch {
+        Write-Log "inbox drain: $($_.Exception.Message)" 'WARN'
+    }
+}
+
 $script:nodeExe = $null
 $script:ingestScript = Join-Path $root 'scripts\ingest.ts'
+$script:inboxScript = Join-Path $root 'scripts\inbox.ts'
 
 # The elevated half. register-task.ps1 creates the task and deploys the
 # scripts it runs; these names must match what it uses. The deploy root is
@@ -450,6 +469,8 @@ try {
         Write-Log "scratch removed"
     }
 
+    Invoke-InboxDrain
+
     $elapsed = [math]::Round(((Get-Date) - $startedAt).TotalSeconds, 1)
     Write-Log "=== run complete in ${elapsed}s ===" 'OK'
     exit 0
@@ -458,6 +479,7 @@ catch {
     $msg = $_.Exception.Message
     Write-Log $msg 'ERROR'
     Record-Failure $msg
+    Invoke-InboxDrain
 
     # Leave scratch in place on failure -- it is the evidence.
     Write-Log "=== run FAILED ===" 'ERROR'

@@ -70,6 +70,7 @@ export function openDatabase(dbPath: string, opts: OpenOptions = {}): DatabaseSy
 
   const db = new DatabaseSync(dbPath);
   db.exec(SCHEMA_SQL);
+  migrateColumns(db);
 
   const stmt = db.prepare(
     `INSERT INTO meta(key, value) VALUES('schema_version', ?)
@@ -78,6 +79,31 @@ export function openDatabase(dbPath: string, opts: OpenOptions = {}): DatabaseSy
   stmt.run(String(SCHEMA_VERSION));
 
   return db;
+}
+
+/**
+ * Columns added to a table after it shipped.
+ *
+ * `SCHEMA_SQL` is all `CREATE ... IF NOT EXISTS`, which creates a missing
+ * table but never alters an existing one, so a column added later needs an
+ * explicit `ALTER TABLE` on databases written before it. Readers must still
+ * tolerate its absence: the dashboard opens read-only and never gets here.
+ */
+const ADDED_COLUMNS: { table: string; column: string; type: string }[] = [
+  { table: 'android_sync_log', column: 'landed_at', type: 'TEXT' }, // schema 7
+];
+
+function migrateColumns(db: DatabaseSync): void {
+  for (const c of ADDED_COLUMNS) {
+    if (!hasColumn(db, c.table, c.column)) {
+      db.exec(`ALTER TABLE ${c.table} ADD COLUMN ${c.column} ${c.type}`);
+    }
+  }
+}
+
+export function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return cols.some((c) => c.name === column);
 }
 
 /**

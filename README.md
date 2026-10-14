@@ -241,7 +241,7 @@ simplest way is the signed APK attached to the newest
 carries one:
 
 ```bash
-adb install -r data-usage-reporter-1.4.1.apk
+adb install -r data-usage-reporter-1.5.apk
 ```
 
 Or build it yourself:
@@ -306,6 +306,52 @@ On the phone, open **Data Usage Reporter** and:
    rather than silently record no mobile data.
 4. Press **Sync now** once, then leave it. It syncs every 6 hours on unmetered
    networks; both are adjustable in the app.
+
+#### Optional: a cloud inbox, so the phone can report from anywhere
+
+On its own the phone posts straight to the dashboard, so it must be on the
+PC's network, the PC must be on, and the address changes whenever the router
+hands the PC a new one. A **cloud inbox** removes all three: the phone posts
+to a fixed `https://` address on any network, and the PC collects whatever is
+waiting when it next runs. Android keeps ~90 days, so nothing is lost while
+the PC is off either way; the inbox only stops the waiting.
+
+**The inbox cannot read what it holds.** The app encrypts each upload to a
+key that only the PC has (P-256 ECDH, AES-256-GCM), and mixes your ingest
+token into the key derivation, so the inbox cannot forge one either. It sees
+an envelope's size, its time and the phone's random device id. The format is
+written out at the top of `src/lib/inbox.ts`.
+
+It runs on Supabase's free tier, as one Edge Function and two tables:
+
+1. Create a Supabase project. Run `supabase/migrations/*.sql` in its SQL
+   editor, and deploy `supabase/functions/inbox` with **JWT verification off**
+   (the function checks its own tokens):
+   `supabase functions deploy inbox --no-verify-jwt`.
+2. In `config/collector.json`, set
+   `"inbox": { "url": "https://<project>.supabase.co/functions/v1/inbox", "keyPath": "D:\\keys\\inbox-key.pem" }`.
+   Keep the key off `C:\` and out of the repo, and back it up: envelopes still
+   in the inbox cannot be opened without it.
+3. Create the key and the PC's own token, then register both tokens:
+   ```bash
+   npm run inbox -- keygen
+   npm run inbox -- drain-token
+   npm run inbox -- sql
+   ```
+   Run the SQL that the last one prints in the SQL editor. It holds SHA-256
+   digests only.
+4. Rebuild and restart the dashboard. On the phone, at home, press **Set up
+   cloud inbox from the dashboard**. The app fetches the inbox address and the
+   PC's key over the LAN (never from the inbox, which could swap the key) and
+   shows the key's fingerprint; `npm run inbox -- key` prints the same one.
+
+The hourly collector empties the inbox at the end of each run, or run
+`npm run inbox -- drain` yourself. The Sync page marks an upload that came
+this way with when it reached the database. An envelope that cannot be opened
+stays in the inbox, marked failed; fix the cause, then
+`npm run inbox -- drain --retry-failed`, or press **Full resync** on the phone.
+A free Supabase project pauses after a week with no requests; the phones'
+uploads keep it awake, and the Supabase dashboard restores it if not.
 
 **Never add a phone's total to the PC's.** Tethering (uid `-5`) is traffic the
 phone relayed for other devices; if this PC tethers off the phone, those bytes
@@ -472,7 +518,9 @@ database, and the collector appends to it from there.
   See [docs/DESIGN.md](docs/DESIGN.md#the-privilege-split).
 - **Data never leaves the machine**, except to your phone's own dashboard
   address and any sync client you point at the backup yourself. Next.js
-  telemetry is disabled.
+  telemetry is disabled. The optional cloud inbox is the one outbound
+  connection: it carries only the phones' uploads, encrypted on the phone to
+  a key the inbox never sees, and is off unless `inbox` is set in config.
 - **Nothing collected is ever committed**: `.gitignore` blocks databases,
   snapshots and CSVs.
 

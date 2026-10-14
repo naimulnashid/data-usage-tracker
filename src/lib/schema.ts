@@ -6,7 +6,7 @@
  * write-ups; the short version is in the comments below.
  */
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export const SCHEMA_SQL = /* sql */ `
 PRAGMA journal_mode = WAL;
@@ -291,7 +291,13 @@ CREATE TABLE IF NOT EXISTS android_sync_log (
   oldest_bucket TEXT,
   newest_bucket TEXT,
   app_version   TEXT,
-  error         TEXT
+  error         TEXT,
+  -- When an upload drained from the cloud inbox reached this database; NULL
+  -- for a direct upload, which lands when it is received. received_at stays
+  -- the time the PHONE sent it, so a laptop off for three days does not read
+  -- as three days of uploads all made at once. Added in schema 7 by
+  -- migrateColumns() in db.ts, since CREATE IF NOT EXISTS cannot add it.
+  landed_at     TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_android_sync_received

@@ -331,6 +331,12 @@ export function logAndroidSync(
   fields: Partial<{
     bucketsSent: number; rowsWritten: number; rowsUpdated: number; appsSent: number;
     oldest: string | null; newest: string | null; appVersion: string; error: string;
+    /**
+     * When the phone sent it. Defaults to now, which is right for a direct
+     * upload; an upload drained from the cloud inbox passes the time the
+     * inbox received it, and `landedAt` for when it reached this database.
+     */
+    receivedAt: string; landedAt: string;
   }>,
   opts: IngestOptions = {},
 ): void {
@@ -339,13 +345,13 @@ export function logAndroidSync(
     db.prepare(`
       INSERT INTO android_sync_log
         (device_id, received_at, status, buckets_sent, rows_written, rows_updated,
-         apps_sent, oldest_bucket, newest_bucket, app_version, error)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         apps_sent, oldest_bucket, newest_bucket, app_version, error, landed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      deviceId, new Date().toISOString(), status,
+      deviceId, fields.receivedAt ?? new Date().toISOString(), status,
       fields.bucketsSent ?? 0, fields.rowsWritten ?? 0, fields.rowsUpdated ?? 0,
       fields.appsSent ?? 0, fields.oldest ?? null, fields.newest ?? null,
-      fields.appVersion ?? null, fields.error ?? null,
+      fields.appVersion ?? null, fields.error ?? null, fields.landedAt ?? null,
     );
   } finally {
     db.close();

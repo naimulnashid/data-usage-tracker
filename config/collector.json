@@ -26,7 +26,13 @@
     "",
     "splitApp names one app, as the dashboard shows it (\"qBittorrent\", \"Steam\"),",
     "to set against everything else on the Overview -- for a machine where one",
-    "app dwarfs the rest. null means no split card."
+    "app dwarfs the rest. null means no split card.",
+    "",
+    "inbox is the optional cloud inbox the Android app can post to instead of",
+    "this dashboard: a fixed https address that works while the laptop is off.",
+    "null turns it off. Otherwise { \"url\": <the inbox function's https address>,",
+    "\"keyPath\": <this laptop's private key, which the phones encrypt to> }. Keep",
+    "the key off C:\\ and out of the repo. See scripts/inbox.ts."
   ],
 
   "deviceLabel": "My PC",
@@ -41,5 +47,7 @@
   "srumECmdDir": "C:\\Tools\\ZimmermanTools",
 
   "keepScratch": false,
-  "backupEnabled": true
+  "backupEnabled": true,
+
+  "inbox": null
 }

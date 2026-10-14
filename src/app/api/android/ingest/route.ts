@@ -4,6 +4,7 @@ import { safeEqual } from '@/lib/auth';
 import {
   validatePayload, ingestAndroid, logAndroidSync, databaseReady,
 } from '@/lib/android-ingest';
+import { inboxConfig, loadInboxKey, publicKeyB64, fingerprint } from '@/lib/inbox';
 
 /**
  * Where the phone posts its usage.
@@ -180,11 +181,31 @@ export async function POST(request: Request) {
 }
 
 /**
+ * What the app's "Set up cloud inbox" button reads: the inbox address and the
+ * public half of this laptop's key, or null when no inbox is configured.
+ *
+ * Handed out here, on the LAN and behind the ingest token, rather than by the
+ * inbox itself: a key fetched from the inbox could be swapped by whoever runs
+ * it, which is the one party the encryption exists to keep out.
+ */
+function inboxSetup(): { url: string; publicKey: string; fingerprint: string } | { error: string } | null {
+  try {
+    const cfg = inboxConfig();
+    if (!cfg) return null;
+    const publicKey = publicKeyB64(loadInboxKey(cfg.keyPath));
+    return { url: cfg.url, publicKey, fingerprint: fingerprint(publicKey) };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'inbox misconfigured' };
+  }
+}
+
+/**
  * A reachability check for the app's "Test connection" button.
  *
  * Same token, no side effects. Without it the only way to find out whether the
  * URL and token are right is to attempt a real upload, and a failure then
- * cannot distinguish "wrong address" from "bad payload".
+ * cannot distinguish "wrong address" from "bad payload". It also carries the
+ * cloud inbox settings, so setting a phone up for the inbox is one tap.
  */
 export async function GET(request: Request) {
   const token = configuredToken();
@@ -195,5 +216,5 @@ export async function GET(request: Request) {
   if (!presented || !(await safeEqual(presented, token))) {
     return unauthorised('bad-token');
   }
-  return NextResponse.json({ ok: true, database: databaseReady() });
+  return NextResponse.json({ ok: true, database: databaseReady(), inbox: inboxSetup() });
 }
