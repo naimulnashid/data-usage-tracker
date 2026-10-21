@@ -913,21 +913,10 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 .sync-button { display: inline-flex; align-items: center; gap: 0.45rem; }
 .sync-button:disabled { opacity: 0.75; cursor: progress; transform: none; }
 
-/* A filled dot at rest; the same footprint spinning while a run is in flight,
-   so the control does not change width when it starts. */
-.sync-icon,
-.sync-spinner {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.sync-icon { background: var(--accent-bright); }
-.sync-spinner {
-  border: 2px solid var(--border-strong);
-  border-top-color: var(--accent-bright);
-  animation: spin 700ms linear infinite;
-}
+/* The same arrows at rest and spinning while a run is in flight, so the icon
+   does not change size when it starts. */
+.sync-icon { flex-shrink: 0; }
+.sync-icon.spin { animation: spin 900ms linear infinite; transform-origin: 50% 50%; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
