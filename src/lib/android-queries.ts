@@ -25,8 +25,10 @@ import { hasColumn } from './db';
 import { assignColors, type AppColorMap } from './app-colors';
 import { readRenames } from './app-renames';
 import { readColorOverrides } from './app-color-overrides';
+import { readHidden, readMerges } from './app-prefs';
 import { byNamingOrder } from './android-names';
 import { deviceSlug } from './nav';
+import { ALL_DAYS, RANGES, type ChartRange } from './scope';
 import {
   eachDay, fillDays, fillHours, laterOf, quietDay, unknownDay, type DailyPoint, type DayRange,
 } from './days';
@@ -89,6 +91,8 @@ export interface AndroidApp {
   share: number;
   days: number;
   special: boolean;
+  /** Hidden from the By App page by the user. Still counted everywhere. */
+  hidden: boolean;
 }
 
 export interface AndroidOverview {
@@ -125,6 +129,8 @@ export interface AndroidOverview {
 interface AppNames {
   byUid: Map<number, { name: string; packages: number }>;
   renames: Map<string, string>;
+  /** uid (as text) -> the uid it is merged into, by the user. See lib/app-prefs.ts. */
+  merges: Map<string, string>;
 }
 
 function appNames(db: DatabaseSync, deviceId: string): AppNames {
@@ -143,7 +149,7 @@ function appNames(db: DatabaseSync, deviceId: string): AppNames {
     if (!cur) out.set(uid, { name: r.label || r.package, packages: 1 });
     else cur.packages++;
   }
-  return { byUid: out, renames: readRenames(db, deviceId) };
+  return { byUid: out, renames: readRenames(db, deviceId), merges: readMerges(db, deviceId) };
 }
 
 function baseLabelFor(
@@ -162,13 +168,26 @@ function baseLabelFor(
   return { name: `uid ${uid}`, packages: 0, special: false };
 }
 
-/** The uid's label, with the user's rename applied; `baseName` is without it. */
+/**
+ * The uid's label, with the user's merge and rename applied; `baseName` is
+ * without the rename. A uid the user merged into another is shown as that
+ * one -- its `uid` here is the target's -- so every query naming apps
+ * through this folds it in, as `appResolver` does on the Windows side.
+ */
 function labelFor(
   uid: number,
   names: AppNames,
-): { name: string; baseName: string; packages: number; special: boolean } {
-  const base = baseLabelFor(uid, names.byUid);
-  return { ...base, name: names.renames.get(String(uid)) ?? base.name, baseName: base.name };
+): { uid: number; name: string; baseName: string; packages: number; special: boolean } {
+  const shown = Number(names.merges.get(String(uid)) ?? uid);
+  const base = baseLabelFor(shown, names.byUid);
+  return { ...base, uid: shown, name: names.renames.get(String(shown)) ?? base.name, baseName: base.name };
+}
+
+/** The uids shown as `uid`: itself, and every uid the user merged into it. */
+function membersOf(uid: number, names: AppNames): number[] {
+  const out = [uid];
+  for (const [from, into] of names.merges) if (Number(into) === uid) out.push(Number(from));
+  return out;
 }
 
 /** `WHERE` fragment excluding tethering, used everywhere a total is computed. */
@@ -312,27 +331,48 @@ export function getAndroidOverview(deviceId: string, days: number): AndroidOverv
       .filter((r) => Number(r.uid) !== UID_TETHERING)
       .reduce((a, r) => a + Number(r.rx) + Number(r.tx), 0);
 
-    const apps: AndroidApp[] = rawApps
-      .filter((r) => Number(r.uid) !== UID_TETHERING)
-      .map((r) => {
-        const uid = Number(r.uid);
-        const meta = labelFor(uid, names);
-        const rx = Number(r.rx);
-        const tx = Number(r.tx);
-        return {
-          uid,
-          name: meta.name,
-          baseName: meta.baseName,
-          packages: meta.packages,
-          profile: uid > 0 ? Math.floor(uid / 100_000) : 0,
-          rx,
-          tx,
-          total: rx + tx,
-          share: scopedNamed ? ((rx + tx) / scopedNamed) * 100 : 0,
-          days: Number(r.days),
-          special: meta.special,
-        };
-      });
+    // Folded by the uid each one is SHOWN as, so an app the user merged into
+    // another is one row. Its active days are recounted from the rows, never
+    // added: two uids active on one day are one active day.
+    const hidden = readHidden(db, deviceId);
+    const byShown = new Map<number, AndroidApp>();
+    for (const r of rawApps) {
+      if (Number(r.uid) === UID_TETHERING) continue;
+      const meta = labelFor(Number(r.uid), names);
+      const uid = meta.uid;
+      const cur = byShown.get(uid) ?? {
+        uid,
+        name: meta.name,
+        baseName: meta.baseName,
+        packages: meta.packages,
+        profile: uid > 0 ? Math.floor(uid / 100_000) : 0,
+        rx: 0,
+        tx: 0,
+        total: 0,
+        share: 0,
+        days: Number(r.days),
+        special: meta.special,
+        hidden: hidden.has(String(uid)),
+      };
+      cur.rx += Number(r.rx);
+      cur.tx += Number(r.tx);
+      cur.total = cur.rx + cur.tx;
+      byShown.set(uid, cur);
+    }
+    if (names.merges.size > 0) {
+      const daysOf = new Map<number, Set<string>>();
+      for (const r of db
+        .prepare(`SELECT DISTINCT uid, local_date d FROM android_usage_records WHERE ${OF_DEVICE} AND ${NOT_TETHER} AND local_date >= ?`)
+        .all(deviceId, scopeFrom) as { uid: number; d: string }[]) {
+        const uid = labelFor(Number(r.uid), names).uid;
+        const set = daysOf.get(uid) ?? new Set<string>();
+        set.add(r.d);
+        daysOf.set(uid, set);
+      }
+      for (const a of byShown.values()) a.days = daysOf.get(a.uid)?.size ?? a.days;
+    }
+    const apps = [...byShown.values()].sort((a, b) => b.total - a.total);
+    for (const a of apps) a.share = scopedNamed ? (a.total / scopedNamed) * 100 : 0;
 
     const tethering = rawApps
       .filter((r) => Number(r.uid) === UID_TETHERING)
@@ -627,11 +667,12 @@ export function getAndroidAppColorMap(deviceId: string): AppColorMap {
     // Coloured by the ORIGINAL label, so a brand colour survives a rename; the
     // renamed app then takes that colour under its new name.
     const labels = rows.map((r) => labelFor(Number(r.uid), names));
-    const map = assignColors(labels.map((l) => l.baseName));
+    const map = assignColors([...new Set(labels.map((l) => l.baseName))]);
     for (const l of labels) if (l.name !== l.baseName && map[l.baseName]) map[l.name] = map[l.baseName]!;
     // The user's own colours win, under whatever name the uid shows.
     for (const [uid, color] of readColorOverrides(db, deviceId)) {
-      map[labelFor(Number(uid), names).name] = color;
+      // A merged uid's own colour is not shown: it wears its target's.
+      if (!names.merges.has(uid)) map[labelFor(Number(uid), names).name] = color;
     }
     return map;
   });
@@ -654,6 +695,8 @@ export function getAndroidAppNames(deviceId: string): Map<string, { name: string
     for (const r of db
       .prepare(`SELECT DISTINCT uid FROM android_usage_records WHERE ${OF_DEVICE} AND ${NOT_TETHER}`)
       .all(deviceId) as { uid: number }[]) {
+      // A merged uid is shown as its target, which is listed on its own.
+      if (names.merges.has(String(r.uid))) continue;
       const l = labelFor(Number(r.uid), names);
       out.set(String(r.uid), { name: l.name, base: l.baseName });
     }
@@ -661,82 +704,111 @@ export function getAndroidAppNames(deviceId: string): Map<string, { name: string
   });
 }
 
+/** Every uid this phone has reported, as text, merged ones included: what a hide or a merge may name. */
+export function getAndroidAppKeys(deviceId: string): Set<string> {
+  return withDb((db) => new Set(
+    (db
+      .prepare(`SELECT DISTINCT uid FROM android_usage_records WHERE ${OF_DEVICE} AND ${NOT_TETHER}`)
+      .all(deviceId) as { uid: number }[]).map((r) => String(r.uid)),
+  ));
+}
+
+/** The uid a merged app is now shown as, or null when it is not merged. */
+export function androidMergedInto(deviceId: string, uid: number): number | null {
+  return withDb((db) => {
+    const into = readMerges(db, deviceId).get(String(uid));
+    return into === undefined ? null : Number(into);
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Daily by app                                                        */
 /* ------------------------------------------------------------------ */
 
-export interface AndroidTimeline {
+export interface AndroidTimelineRange {
   /** One per day of the phone's history in range; quiet days carry 0s. */
   points: ({ date: string } & Record<string, string | number | null>)[];
   series: string[];
 }
 
+export interface AndroidTimeline {
+  /** Daily by app, per range in the chart's menu. */
+  ranges: Record<ChartRange, AndroidTimelineRange>;
+}
+
 /**
- * Top-N apps per day, everything else folded into "Other".
+ * Top-N apps per day, everything else folded into "Other", for every range
+ * the chart's menu offers, from one read.
  *
- * Ranked over the scoped window rather than all time, so the band that
- * dominates the picture is the one that dominated the period being looked at.
+ * Each range ranks its own top apps rather than slicing the all-time stack,
+ * so the band that dominates the picture is the one that dominated the
+ * period being looked at.
  */
-export function getAndroidTimeline(deviceId: string, days: number, topN = 8): AndroidTimeline {
+export function getAndroidTimeline(deviceId: string, topN = 8): AndroidTimeline {
   return withDb((db) => {
     const newest = (
       db.prepare(`SELECT MAX(local_date) d FROM android_usage_records WHERE ${OF_DEVICE}`).get(deviceId) as { d: string | null }
     ).d;
-    if (!newest) return { points: [], series: [] };
-    const from = new Date(new Date(`${newest}T00:00:00Z`).getTime() - (days - 1) * 86400000)
-      .toISOString()
-      .slice(0, 10);
+    const empty: AndroidTimelineRange = { points: [], series: [] };
+    if (!newest) return { ranges: Object.fromEntries(RANGES.map((d) => [d, empty])) as Record<ChartRange, AndroidTimelineRange> };
 
     const names = appNames(db, deviceId);
-    const rows = db
-      .prepare(
-        `SELECT local_date d, uid, SUM(rx_bytes + tx_bytes) b FROM android_usage_records
-         WHERE ${OF_DEVICE} AND ${NOT_TETHER} AND local_date >= ?
-         GROUP BY local_date, uid`,
-      )
-      .all(deviceId, from) as { d: string; uid: number; b: number }[];
-
-    const totalByApp = new Map<string, number>();
-    const perDay = new Map<string, Map<string, number>>();
-    for (const r of rows) {
-      const name = labelFor(Number(r.uid), names).name;
-      const b = Number(r.b);
-      totalByApp.set(name, (totalByApp.get(name) ?? 0) + b);
-      const day = perDay.get(r.d) ?? new Map<string, number>();
-      day.set(name, (day.get(name) ?? 0) + b);
-      perDay.set(r.d, day);
-    }
-
-    const top = [...totalByApp.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, topN)
-      .map(([nm]) => nm);
-    const topSet = new Set(top);
-    const hasOther = totalByApp.size > top.length;
-
-    type Point = AndroidTimeline['points'][number];
-    const rowPoints = [...perDay.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, apps]) => {
-        const point: Point = { date };
-        for (const name of top) point[name] = apps.get(name) ?? 0;
-        if (hasOther) {
-          let other = 0;
-          for (const [name, b] of apps) if (!topSet.has(name)) other += b;
-          point['Other'] = other;
-        }
-        return point;
-      });
-
-    const series = hasOther ? [...top, 'Other'] : top;
+    const rows = (
+      db
+        .prepare(
+          `SELECT local_date d, uid, SUM(rx_bytes + tx_bytes) b FROM android_usage_records
+           WHERE ${OF_DEVICE} AND ${NOT_TETHER}
+           GROUP BY local_date, uid`,
+        )
+        .all(deviceId) as { d: string; uid: number; b: number }[]
+    ).map((r) => ({ d: r.d, name: labelFor(Number(r.uid), names).name, b: Number(r.b) }));
     const history = phoneHistory(db, deviceId);
-    const every = (value: 0 | null) => (date: string): Point =>
-      Object.fromEntries([['date', date], ...series.map((s) => [s, value])]) as Point;
-    const points = history
-      ? fillDays(rowPoints, laterOf(from, history.first), history.last, [history], every(0), every(null))
-      : [];
 
-    return { points, series };
+    const build = (days: number): AndroidTimelineRange => {
+      const from = new Date(new Date(`${newest}T00:00:00Z`).getTime() - (Math.min(days, ALL_DAYS) - 1) * 86400000)
+        .toISOString()
+        .slice(0, 10);
+      const totalByApp = new Map<string, number>();
+      const perDay = new Map<string, Map<string, number>>();
+      for (const r of rows) {
+        if (r.d < from) continue;
+        totalByApp.set(r.name, (totalByApp.get(r.name) ?? 0) + r.b);
+        const day = perDay.get(r.d) ?? new Map<string, number>();
+        day.set(r.name, (day.get(r.name) ?? 0) + r.b);
+        perDay.set(r.d, day);
+      }
+
+      const top = [...totalByApp.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topN)
+        .map(([nm]) => nm);
+      const topSet = new Set(top);
+      const hasOther = totalByApp.size > top.length;
+
+      type Point = AndroidTimelineRange['points'][number];
+      const rowPoints = [...perDay.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, apps]) => {
+          const point: Point = { date };
+          for (const name of top) point[name] = apps.get(name) ?? 0;
+          if (hasOther) {
+            let other = 0;
+            for (const [name, b] of apps) if (!topSet.has(name)) other += b;
+            point['Other'] = other;
+          }
+          return point;
+        });
+
+      const series = hasOther ? [...top, 'Other'] : top;
+      const every = (value: 0 | null) => (date: string): Point =>
+        Object.fromEntries([['date', date], ...series.map((s) => [s, value])]) as Point;
+      const points = history
+        ? fillDays(rowPoints, laterOf(from, history.first), history.last, [history], every(0), every(null))
+        : [];
+      return { points, series };
+    };
+
+    return { ranges: Object.fromEntries(RANGES.map((d) => [d, build(d)])) as Record<ChartRange, AndroidTimelineRange> };
   });
 }
 
@@ -790,6 +862,8 @@ export interface AndroidAppDetail {
   byNetwork: { network: string; total: number }[];
   /** Every package sharing this uid. Length > 1 is the interesting case. */
   packages: AndroidPackage[];
+  /** uids the user merged into this one, which the page can undo. */
+  merged: { uid: number; name: string }[];
 }
 
 /** Ignores scope: does this uid exist in the data at all? */
@@ -826,13 +900,18 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
       .toISOString()
       .slice(0, 10);
 
+    // This uid and every uid the user merged into it, read as one app.
+    const names = appNames(db, deviceId);
+    const uids = membersOf(uid, names);
+    const inUids = uids.map(() => '?').join(',');
+
     const totals = totalsOf(
       db
         .prepare(
           `SELECT SUM(rx_bytes) rx, SUM(tx_bytes) tx FROM android_usage_records
-           WHERE ${OF_DEVICE} AND uid = ? AND local_date >= ?`,
+           WHERE ${OF_DEVICE} AND uid IN (${inUids}) AND local_date >= ?`,
         )
-        .get(deviceId, uid, from) as { rx: number | null; tx: number | null },
+        .get(deviceId, ...uids, from) as { rx: number | null; tx: number | null },
     );
 
     // Days this uid moved data. `days`, `first`, `last` and `peak` are read off
@@ -842,9 +921,9 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
       db
         .prepare(
           `SELECT local_date d, SUM(rx_bytes) rx, SUM(tx_bytes) tx FROM android_usage_records
-           WHERE ${OF_DEVICE} AND uid = ? AND local_date >= ? GROUP BY local_date ORDER BY local_date`,
+           WHERE ${OF_DEVICE} AND uid IN (${inUids}) AND local_date >= ? GROUP BY local_date ORDER BY local_date`,
         )
-        .all(deviceId, uid, from) as { d: string; rx: number; tx: number }[]
+        .all(deviceId, ...uids, from) as { d: string; rx: number; tx: number }[]
     ).map((r) => ({
       date: r.d,
       received: Number(r.rx),
@@ -857,9 +936,9 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
       db
         .prepare(
           `SELECT local_hour h, SUM(rx_bytes) rx, SUM(tx_bytes) tx FROM android_usage_records
-           WHERE ${OF_DEVICE} AND uid = ? AND local_date >= ? GROUP BY local_hour ORDER BY local_hour`,
+           WHERE ${OF_DEVICE} AND uid IN (${inUids}) AND local_date >= ? GROUP BY local_hour ORDER BY local_hour`,
         )
-        .all(deviceId, uid, from) as { h: number; rx: number; tx: number }[]
+        .all(deviceId, ...uids, from) as { h: number; rx: number; tx: number }[]
     ).map((r) => ({
       hour: Number(r.h),
       received: Number(r.rx),
@@ -871,16 +950,16 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
       db
         .prepare(
           `SELECT network n, SUM(rx_bytes + tx_bytes) b FROM android_usage_records
-           WHERE ${OF_DEVICE} AND uid = ? AND local_date >= ? GROUP BY network ORDER BY b DESC`,
+           WHERE ${OF_DEVICE} AND uid IN (${inUids}) AND local_date >= ? GROUP BY network ORDER BY b DESC`,
         )
-        .all(deviceId, uid, from) as { n: string; b: number }[]
+        .all(deviceId, ...uids, from) as { n: string; b: number }[]
     ).map((r) => ({ network: r.n, total: Number(r.b) }));
 
     // In naming order, so the package the page is named after comes first.
     const packages = (
       db
-        .prepare(`SELECT package p, label l, is_system s FROM android_apps WHERE ${OF_DEVICE} AND uid = ?`)
-        .all(deviceId, uid) as { p: string; l: string; s: number }[]
+        .prepare(`SELECT package p, label l, is_system s FROM android_apps WHERE ${OF_DEVICE} AND uid IN (${inUids})`)
+        .all(deviceId, ...uids) as { p: string; l: string; s: number }[]
     )
       .map((r) => ({ package: r.p, label: r.l, isSystem: Number(r.s) === 1 }))
       .sort(byNamingOrder)
@@ -897,7 +976,6 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
       ).b ?? 0,
     );
 
-    const names = appNames(db, deviceId);
     const meta = labelFor(uid, names);
     const peak = rowDays.reduce<{ date: string; total: number } | null>(
       (best, d) => (best === null || d.total > best.total ? { date: d.date, total: d.total } : best),
@@ -920,6 +998,7 @@ export function getAndroidAppDetail(deviceId: string, uid: number, days: number)
       hourly,
       byNetwork,
       packages,
+      merged: uids.slice(1).map((u) => ({ uid: u, name: baseLabelFor(u, names.byUid).name })),
     };
   });
 }

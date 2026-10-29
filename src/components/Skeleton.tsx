@@ -447,3 +447,67 @@ export function SkDataTable({ head, rows, cells, className }: {
     </div>
   );
 }
+
+/** A chart's range menu in its card's head (components/RangeMenu.tsx). */
+export function SkRangeMenu() {
+  return (
+    <span className="range-menu" aria-hidden>
+      <span className="skeleton" style={{ width: 15, height: 15, borderRadius: 4 }} />
+      <SkText>30d</SkText>
+    </span>
+  );
+}
+
+/** The Apps card's Table / Grid switch (components/AppsViews.tsx). */
+export function SkViewToggle() {
+  return (
+    <div className="view-toggle" aria-hidden>
+      <button type="button" tabIndex={-1}><SkText>&#9776; Table</SkText></button>
+      <button type="button" tabIndex={-1}><SkText>&#9638; Grid</SkText></button>
+    </div>
+  );
+}
+
+/** Per-kind figures with their icons, as in "Where it went" (components/WhereItWent.tsx). */
+export function SkKinds({ kinds }: { kinds: { label: string; value: string; sub: string }[] }) {
+  return (
+    <div className={`grid grid--${Math.min(kinds.length, 4)}`}>
+      {kinds.map((k) => (
+        <div key={k.label}>
+          <div className="legend-item net-kind">
+            <span className="skeleton" style={{ width: 17, height: 17, borderRadius: 5, flexShrink: 0 }} />
+            <SkText>{k.label}</SkText>
+          </div>
+          <div className="stat-value net-value--wifi"><SkText>{k.value}</SkText></div>
+          <div className="stat-sub"><SkText>{k.sub}</SkText></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The network ring and its list, `rows` long. */
+export function SkDonut({ rows, footnote }: { rows: number; footnote?: React.ReactNode }) {
+  return (
+    <div className="ssid-block">
+      <div className="donut-wrap">
+        <div className="donut"><Skeleton height="100%" radius="50%" /></div>
+        <table className="ssid-table donut-list">
+          <tbody>
+            {Array.from({ length: rows }, (_, i) => (
+              <tr key={i}>
+                <td className="ssid-name">
+                  <span className="donut-key"><span className="skeleton" style={{ width: 16, height: 16, borderRadius: 4, display: 'inline-block' }} /></span>
+                  <SkText>HomeNet-5G</SkText>
+                </td>
+                <td className="num"><SkText>19.1 GB</SkText></td>
+                <td className="num donut-pct"><SkText>12.4%</SkText></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {footnote && <SkMask>{footnote}</SkMask>}
+    </div>
+  );
+}

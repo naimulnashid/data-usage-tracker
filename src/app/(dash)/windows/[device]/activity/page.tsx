@@ -3,12 +3,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { windowsTitle } from '@/lib/page-title';
 import {
-  getHeatmap, getRowCount, windowsDeviceBySlug, databaseExists,
+  getHeatmap, windowsDeviceBySlug, databaseExists,
 } from '@/lib/queries';
 import { Card, CardTitle } from '@/components/Card';
 import { ExpandedHeatmap } from '@/components/ActivityHeatmap';
-import { EmptyState, NoDataInScope } from '@/components/EmptyState';
-import { scopeQuery } from '@/lib/scope';
+import { EmptyState } from '@/components/EmptyState';
+import { BackKey } from '@/components/BackKey';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,10 +28,9 @@ export async function generateMetadata({
  * short. Ignores the day range like the card does.
  */
 export default async function ActivityPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   if (!databaseExists()) return <EmptyState />;
 
@@ -40,19 +39,15 @@ export default async function ActivityPage({
   if (!device) notFound();
   const base = `/windows/${device.slug}`;
 
-  const sp = await searchParams;
   const heatmap = getHeatmap(null);
 
-  if (heatmap.length === 0) {
-    return getRowCount() === 0
-      ? <EmptyState />
-      : <NoDataInScope home={base} />;
-  }
+  if (heatmap.length === 0) return <EmptyState />;
 
   return (
     <>
+      <BackKey href={base} />
       <div className="page-head">
-        <Link href={`${base}${scopeQuery(sp)}`} className="back-link">&larr; Overview</Link>
+        <Link href={base} className="back-link">&larr; Overview</Link>
         <h1 style={{ marginTop: '0.6rem' }}>Activity</h1>
         <p>Every day held, six months to a row, on one colour scale</p>
       </div>

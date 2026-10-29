@@ -1,5 +1,5 @@
 import {
-  SkPageHead, SkStats, SkStat, SkCard, SkCallout, SkPlot, SkHourly, SkDataTable, SkeletonGap,
+  SkPageHead, SkStats, SkStat, SkCard, SkCallout, SkPlot, SkHourly, SkDataTable, SkRangeMenu, SkeletonGap,
 } from '@/components/Skeleton';
 
 /**
@@ -25,15 +25,15 @@ export default function Loading() {
       </SkStats>
       <SkCard
         title="Daily usage"
-        sub="Download and upload stacked, on the same shading as the rest of the dashboard"
-        aside={<SkCallout label="Heaviest day" date="Sep 17" value="2.58 GB" />}
+        sub="Heaviest day Sep 17 · 2.58 GB"
+        aside={<SkRangeMenu />}
       >
         <SkPlot height={300} />
       </SkCard>
       <SkeletonGap />
       <SkCard
         title="Hour of day"
-        sub="Local time, summed over the selected range"
+        sub="Local time, summed over all history"
         aside={<SkCallout label="Busiest hour" date="11:00" value="15.7 GB" />}
       >
         <SkHourly />

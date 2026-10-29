@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { androidTitle } from '@/lib/page-title';
 import {
   getAndroidAppDetail, getAndroidAppColorMap, getAndroidColorOverrides, androidAppExists, androidReady,
-  earnsAndroidDetailPage, deviceBySlug, getSsidForUid, getAndroidAppNames,
+  earnsAndroidDetailPage, deviceBySlug, getSsidForUid, getAndroidAppNames, androidMergedInto,
 } from '@/lib/android-queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { colorOf, rawColorOf } from '@/lib/app-colors';
@@ -14,9 +14,12 @@ import { CountUp } from '@/components/CountUp';
 import { AppIcon } from '@/components/AppIcon';
 import { BusiestHour } from '@/components/BusiestHour';
 import { RenameApp } from '@/components/RenameApp';
-import { AppDailyChart, HourlyChart } from '@/components/Charts';
+import { HourlyChart } from '@/components/Charts';
+import { AppDailyCard } from '@/components/RangedCharts';
+import { BackKey } from '@/components/BackKey';
+import { UnmergeButton } from '@/components/AppMenu';
 import { AndroidEmpty } from '@/components/AndroidEmpty';
-import { parseDays } from '@/lib/scope';
+import { ALL_DAYS } from '@/lib/scope';
 import { formatBytes, formatDayShort, formatPercent, splitBytes } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -42,28 +45,29 @@ function Stat({
   );
 }
 
+/** The USB capture's per-network list; hidden with the overview's. See SHOW_USB_SSIDS there. */
+const SHOW_USB_SSIDS = false;
+
 /** One detail read per request, shared by the title and the page. See the Windows twin. */
 const detailFor = cache((deviceId: string, uid: number, days: number) =>
   getAndroidAppDetail(deviceId, uid, days));
 
 export async function generateMetadata({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string; uid: string }>;
-  searchParams: Promise<{ days?: string }>;
 }): Promise<Metadata> {
   const { device: slug, uid } = await params;
   const device = androidReady() ? deviceBySlug(slug) : null;
   if (!device || !Number.isInteger(Number(uid))) return androidTitle(slug);
-  const app = detailFor(device.deviceId, Number(uid), parseDays((await searchParams).days));
+  const app = detailFor(device.deviceId, Number(uid), ALL_DAYS);
   return androidTitle(slug, app?.name ?? 'App');
 }
 
 export default async function AndroidAppPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string; uid: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   if (!androidReady()) return <AndroidEmpty />;
 
@@ -74,30 +78,21 @@ export default async function AndroidAppPage({
   const uid = Number(rawUid);
   if (!Number.isInteger(uid)) notFound();
 
-  const sp = await searchParams;
-  const days = parseDays(sp.days);
-  const scope = sp.days ? `?days=${sp.days}` : '';
+  const days = ALL_DAYS;
+
+  // A uid the user merged into another lives on that one's page.
+  const into = androidMergedInto(device.deviceId, uid);
+  if (into !== null) redirect(`/android/${slug}/apps/${into}`);
 
   const app = detailFor(device.deviceId, uid, days);
-  if (!app) {
-    if (!androidAppExists(device.deviceId, uid)) notFound();
-    return (
-      <>
-        <div className="page-head">
-          <h1>Nothing in this range</h1>
-          <p>This app moved no data in the selected window.</p>
-        </div>
-        <Link href={`/android/${slug}/apps`} className="chip">&larr; Back to the app list</Link>
-      </>
-    );
-  }
+  if (!app || !androidAppExists(device.deviceId, uid)) notFound();
 
   // Re-checked here, not just on the table's link: a pasted or bookmarked URL
   // for a trivial uid would otherwise render a page of one bar.
   if (!earnsAndroidDetailPage(app.totals.total, app.days)) notFound();
 
   const colors = getAndroidAppColorMap(device.deviceId);
-  const ssids = getSsidForUid(device.deviceId, uid, days);
+  const ssids = SHOW_USB_SSIDS ? getSsidForUid(device.deviceId, uid, days) : [];
   const icons = getAppIconMap(device.slug, getAndroidAppNames(device.deviceId).values());
   const color = colorOf(colors, app.name);
 
@@ -107,8 +102,9 @@ export default async function AndroidAppPage({
 
   return (
     <>
+      <BackKey href={`/android/${slug}/apps`} />
       <div className="page-head">
-        <Link href={`/android/${slug}/apps${scope}`} className="back-link">&larr; All apps on this phone</Link>
+        <Link href={`/android/${slug}/apps`} className="back-link">&larr; All apps on this phone</Link>
         <RenameApp
           variant="title" platform="android" device={device.slug}
           appKey={String(app.uid)} name={app.name} baseName={app.baseName}
@@ -145,25 +141,7 @@ export default async function AndroidAppPage({
           sub={`across ${app.days} ${app.days === 1 ? 'day' : 'days'}`} />
       </div>
 
-      <Card delay={240} hover={false}>
-        <CardTitle
-          sub="Download and upload stacked, on the same shading as the rest of the dashboard"
-          aside={
-            app.peak && (
-              <div className="callout">
-                <div className="callout-head">
-                  <span className="callout-label">Heaviest day</span>
-                  <span className="callout-date">{formatDayShort(app.peak.date)}</span>
-                </div>
-                <div className="callout-value">{formatBytes(app.peak.total)}</div>
-              </div>
-            )
-          }
-        >
-          Daily usage
-        </CardTitle>
-        <AppDailyChart data={app.daily} />
-      </Card>
+      <AppDailyCard daily={app.daily} delay={240} />
 
       <div style={{ height: '1.15rem' }} />
 
@@ -247,6 +225,37 @@ export default async function AndroidAppPage({
         kernel cannot tell these packages apart, so neither can this dashboard,
         and pretending otherwise would be inventing an attribution nobody has.
       */}
+      {app.merged.length > 0 && (
+        <>
+          <div style={{ height: '1.15rem' }} />
+          <Card delay={400} hover={false}>
+            <CardTitle sub={`Merged by you, and counted as ${app.name} on every page.`}>
+              Merged apps
+            </CardTitle>
+            <div className="table-wrap">
+              <table className="member-table">
+                <tbody>
+                  {app.merged.map((m) => (
+                    <tr key={m.uid}>
+                      <td>
+                        <span className="app-cell">
+                          <AppIcon name={m.name} color={color} icons={icons} />
+                          <span className="app-name" title={`${m.name} - uid ${m.uid}`}>{m.name}</span>
+                          <span className="badge app-kind">uid {m.uid}</span>
+                        </span>
+                      </td>
+                      <td className="num undo-col">
+                        <UnmergeButton platform="android" device={device.slug} appKey={String(m.uid)} name={m.name} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+
       {app.packages.length > 0 && (
         <>
           <div style={{ height: '1.15rem' }} />

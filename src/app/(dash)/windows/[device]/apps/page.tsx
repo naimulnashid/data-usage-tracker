@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
 import { notFound } from 'next/navigation';
 import {
-  getByApp, getAppColorMap, getAppColorOverrides, getRowCount, windowsDeviceBySlug, databaseExists, getWindowsAppNames, type Scope,
+  getByApp, getAppColorMap, getAppColorOverrides, windowsDeviceBySlug, databaseExists, getWindowsAppNames, type Scope,
 } from '@/lib/queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
-import { parseDays, scopeQuery } from '@/lib/scope';
+import { ALL_DAYS } from '@/lib/scope';
 import { TopAppsChart } from '@/components/Charts';
 import { AppTable } from '@/components/AppTable';
-import { EmptyState, NoDataInScope } from '@/components/EmptyState';
+import { EmptyState } from '@/components/EmptyState';
 import { formatBytes, formatPercent } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -24,10 +24,9 @@ export async function generateMetadata({
 }
 
 export default async function ByAppPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   if (!databaseExists()) return <EmptyState />;
 
@@ -36,26 +35,18 @@ export default async function ByAppPage({
   if (!device) notFound();
   const base = `/windows/${device.slug}`;
 
-  const sp = await searchParams;
-  const scope: Scope = { days: parseDays(sp.days) };
+  // All history: the page has no range of its own.
+  const scope: Scope = { days: ALL_DAYS };
   const data = getByApp(scope);
-
-  // Carry the active scope into detail links, so opening an app does not
-  // silently reset the range the user was looking at.
-  const search = scopeQuery(sp);
   const colors = getAppColorMap();
   const icons = getAppIconMap(device.slug, getWindowsAppNames().values());
 
-  if (data.apps.length === 0) {
-    // Distinguish an empty database from an empty selection.
-    return getRowCount() === 0
-      ? <EmptyState />
-      : <NoDataInScope home={base} />;
-  }
+  if (data.apps.length === 0) return <EmptyState />;
 
-  const top = data.apps.slice(0, 10).map((a) => ({
+  // Hidden apps leave the Top 10 too; their bytes stay in every total.
+  const top = data.apps.filter((a) => !a.hidden).slice(0, 10).map((a) => ({
     name: a.name, total: a.total, sent: a.sent, received: a.received, share: a.share,
-    href: a.detailed ? `${base}/apps/${encodeURIComponent(a.key)}${search}` : undefined,
+    href: a.detailed ? `${base}/apps/${encodeURIComponent(a.key)}` : undefined,
   }));
 
   return (
@@ -80,18 +71,7 @@ export default async function ByAppPage({
 
       <div style={{ height: '1.15rem' }} />
 
-      <Card delay={90} hover={false}>
-        <CardTitle
-          sub={
-            data.unattributed > 0
-              ? 'Percentages are of attributed traffic, so they will not quite reach the headline total — the remainder is traffic SRUM could not attribute to a process.'
-              : undefined
-          }
-        >
-          Apps
-        </CardTitle>
-        <AppTable apps={data.apps} colors={colors} custom={[...getAppColorOverrides().keys()]} icons={icons} search={search} base={base} device={device.slug} />
-      </Card>
+      <AppTable apps={data.apps} colors={colors} custom={[...getAppColorOverrides().keys()]} icons={icons} base={base} device={device.slug} />
     </>
   );
 }

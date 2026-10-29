@@ -37,7 +37,7 @@ import { pageItems, clampPage } from '../src/lib/pager.js';
 import { byNamingOrder } from '../src/lib/android-names.js';
 import { mergeAndroidDevice } from '../src/lib/android-merge.js';
 import { isSameOrigin } from '../src/lib/same-origin.js';
-import { parseDays, ALL_DAYS, DEFAULT_DAYS } from '../src/lib/scope.js';
+import { lastDays, ALL_DAYS } from '../src/lib/scope.js';
 import { LoginThrottle, DEFAULT_THROTTLE } from '../src/lib/login-throttle.js';
 import { checkRename } from '../src/lib/rename-rule.js';
 import {
@@ -716,21 +716,13 @@ async function securityChecks(): Promise<void> {
   origin('Origin: null', false, null, 'null', 'localhost:7843');
   origin('a missing Host', false, 'same-origin', 'http://localhost:7843', null);
 
-  // ?days= goes straight into Date arithmetic. 1e9 used to reach it and throw
-  // RangeError, taking the page down; anything unbounded or fractional must
-  // fall back, while an old ?days=365 bookmark keeps working.
-  const days = (raw: string | undefined, want: number) =>
-    check(`?days=${raw} -> ${want}`, parseDays(raw) === want, `got ${parseDays(raw)}`);
-  days('30', 30);
-  days('365', 365);
-  days(String(ALL_DAYS), ALL_DAYS);
-  days('1e9', DEFAULT_DAYS);
-  days(String(ALL_DAYS + 1), DEFAULT_DAYS);
-  days('0', DEFAULT_DAYS);
-  days('-7', DEFAULT_DAYS);
-  days('7.5', DEFAULT_DAYS);
-  days('abc', DEFAULT_DAYS);
-  days(undefined, DEFAULT_DAYS);
+  // A chart's range is the tail of a one-entry-per-day series. "All" and any
+  // range longer than the history return the whole series, never an error.
+  const series = ['d1', 'd2', 'd3', 'd4', 'd5'];
+  check('lastDays(7) of 5 days is all 5', lastDays(series, 7).length === 5);
+  check('lastDays(All) of 5 days is all 5', lastDays(series, ALL_DAYS).length === 5);
+  check('lastDays(2) is the newest two', lastDays(series, 2).join() === 'd4,d5');
+  check('lastDays of an empty series is empty', lastDays([], 30).length === 0);
 
   // The rename rule, reset included.
   const shown = (pairs: [string, string, string][]) =>

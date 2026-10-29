@@ -1,0 +1,47 @@
+---
+import Icon, { type IconName } from './Icon.astro';
+
+const tiles: { icon: IconName; title: string; text: string }[] = [
+  { icon: 'cloudOff', title: 'No cloud', text: 'No account, no telemetry. The one optional connection is the phones\' sealed inbox.' },
+  { icon: 'lock', title: 'Password-gated', text: 'At least 12 characters, and it fails closed: no password, no access.' },
+  { icon: 'monitor', title: 'This PC only', text: 'Listens on 127.0.0.1 unless you open it to your network.' },
+  { icon: 'shield', title: 'Least privilege', text: 'Only the shadow copy runs as Administrator, from an admin-only folder.' },
+];
+---
+
+<section class="section" id="privacy" aria-labelledby="privacy-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">Privacy</p>
+      <h2 id="privacy-title">Your history stays on your PC.</h2>
+      <p class="lead">It records which programs ran and when, so it is gated, local, and runs with no more rights than it needs.</p>
+    </div>
+    <ul class="grid tiles">
+      {
+        tiles.map((t) => (
+          <li class="card">
+            <span class="icon-tile"><Icon name={t.icon} /></span>
+            <h3>{t.title}</h3>
+            <p class="muted">{t.text}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .tiles {
+    --col-min: 220px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tiles h3 {
+    margin-bottom: 4px;
+  }
+
+  .tiles p {
+    font-size: 0.9375rem;
+  }
+</style>

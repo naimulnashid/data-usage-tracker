@@ -1,0 +1,138 @@
+---
+import Icon from './Icon.astro';
+import { LINKS } from '../lib/site';
+
+const steps = [
+  { title: 'Clone and install', text: '<code>npm install</code>, then set the database path in <code>config/collector.json</code> and a password in <code>.env.local</code>.' },
+  { title: 'Register the tasks', text: 'Once, from an Administrator PowerShell: <code>scripts\\register-task.ps1 -RunNow</code>. It collects straight away.' },
+  { title: 'Start the dashboard', text: '<code>scripts\\install-autostart.ps1</code> starts it at every logon, at <code>localhost:7843</code>.' },
+  { title: 'Add a phone, if you like', text: 'Install the reporter APK from a release and give it the dashboard\'s address and token.' },
+];
+
+const needs = [
+  'Windows 10 or 11, Administrator rights once',
+  'Node.js 22.16 or newer',
+  'SrumECmd and a .NET runtime',
+  'A second drive or partition',
+  'For phones: Android 8.0+ and adb',
+];
+---
+
+<section class="section" id="install" aria-labelledby="install-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow">Install</p>
+      <h2 id="install-title">Four steps, from a clone.</h2>
+      <p class="lead">It runs from the repository as scheduled scripts and a local server, so there is no installer. The README walks through each step.</p>
+    </div>
+    <div class="install">
+      <aside class="card needs">
+        <h3>You need</h3>
+        <ul>{needs.map((n) => <li><Icon name="check" />{n}</li>)}</ul>
+        <div class="buttons">
+          <a class="button button-primary" href={LINKS.setup}><Icon name="arrowRight" /> Setup guide</a>
+          <a class="button button-secondary" href={LINKS.releases}><Icon name="download" /> Phone app</a>
+        </div>
+        <p class="alt">After a Windows reset, <a href={LINKS.recovery}>the recovery steps</a> put everything back.</p>
+      </aside>
+
+      <ol class="steps">
+        {
+          steps.map((s, i) => (
+            <li>
+              <span class="step-number" aria-hidden="true">{i + 1}</span>
+              <div>
+                <h3>{s.title}</h3>
+                <p class="muted" set:html={s.text} />
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</section>
+
+<style>
+  .install {
+    display: grid;
+    gap: 40px;
+  }
+
+  /* Phones: the card first, after the heading. Wide screens: the steps on the
+     left, the card on the right. */
+  @media (min-width: 960px) {
+    .install {
+      grid-template-columns: 1.2fr 1fr;
+      align-items: start;
+    }
+
+    .steps {
+      order: -1;
+    }
+  }
+
+  .steps {
+    display: grid;
+    gap: 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .steps li {
+    display: flex;
+    gap: 16px;
+  }
+
+  .step-number {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    color: var(--accent-bright);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .steps h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 5px 0 4px;
+  }
+
+  .needs {
+    display: grid;
+    gap: 16px;
+  }
+
+  .needs ul {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-dim);
+  }
+
+  .needs li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .needs li :global(svg) {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    color: var(--accent-bright);
+  }
+
+  .alt {
+    color: var(--text-faint);
+    font-size: 0.875rem;
+  }
+</style>

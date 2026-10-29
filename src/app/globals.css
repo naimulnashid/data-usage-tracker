@@ -881,34 +881,15 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 }
 
 /*
-  Scope controls: the range chips. (A network selector sat here too until
-  2026-09-30, and was the reason this group had to be able to split.)
-
-  These carried their layout as inline styles, which no media or container rule
-  can reach. They are classes so the group can wrap and stay right-aligned
-  when it does.
-*/
-.scope-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.55rem 0.75rem;
-}
-
-.scope-ranges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem; }
-
-/*
   A flex item defaults to `min-width: auto`, meaning "never shrink below your
   content", and that is what let the controls push past the bar's padding at
-  320px. The chain has to opt out at every level -- the group and the scope
-  cluster -- or the widest control still sets a floor elements up.
+  320px. The group has to opt out, or the widest control sets a floor.
 
   Use `min-width`, not `max-width: 100%`: a percentage max-width against an
   auto-sized flex parent is circular, and was measured making the old network
   select WIDER (401px inside a 258px bar).
 */
-.topbar-right, .scope-bar { min-width: 0; }
+.topbar-right { min-width: 0; }
 
 .sync-button { display: inline-flex; align-items: center; gap: 0.45rem; }
 .sync-button:disabled { opacity: 0.75; cursor: progress; transform: none; }
@@ -1097,11 +1078,10 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 .app-table { table-layout: fixed; width: 100%; }
 
 .app-table th:nth-child(1), .app-table td:nth-child(1) { width: 30%; }
-.app-table th:nth-child(2), .app-table td:nth-child(2) { width: 13%; }
-.app-table th:nth-child(3), .app-table td:nth-child(3) { width: 13%; }
-.app-table th:nth-child(4), .app-table td:nth-child(4) { width: 13%; }
+.app-table th:nth-child(2), .app-table td:nth-child(2) { width: 14%; }
+.app-table th:nth-child(3), .app-table td:nth-child(3) { width: 14%; }
+.app-table th:nth-child(4), .app-table td:nth-child(4) { width: 14%; }
 .app-table th:nth-child(5), .app-table td:nth-child(5) { width: 11%; }
-.app-table th:nth-child(6), .app-table td:nth-child(6) { width: 20%; }
 
 .app-cell {
   display: flex;
@@ -1189,9 +1169,11 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
   transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
 .rename-btn:hover, .rename-btn:focus-visible { color: var(--text); border-color: var(--border-strong); }
-.app-table .rename-btn { opacity: 0; }
-.app-table tr:hover .rename-btn, .app-table .rename-btn:focus-visible { opacity: 1; }
-@media (hover: none) { .app-table .rename-btn { opacity: 1; } }
+.app-table .rename-btn, .app-card .rename-btn { opacity: 0; }
+.app-table tr:hover .rename-btn, .app-table .rename-btn:focus-visible,
+.app-card:hover .rename-btn, .app-card:focus-within .rename-btn,
+.rename-btn[aria-expanded='true'] { opacity: 1; }
+@media (hover: none) { .app-table .rename-btn, .app-card .rename-btn { opacity: 1; } }
 .app-title .rename-btn { width: 32px; height: 32px; }
 
 .rename-form {
@@ -1478,3 +1460,172 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
+
+/* ------------------------------------------------------ icons (3.7.0) */
+
+/* Interface marks (components/Icons.tsx) never shrink out of a flex row. */
+.icon { flex-shrink: 0; display: inline-block; vertical-align: middle; }
+
+/* ----------------------------------------------- a chart's range menu */
+
+/* A chip-shaped native select with a calendar mark, in a card head's right
+   slot (components/RangeMenu.tsx). */
+.range-menu {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.38rem 0.75rem 0.38rem 0.7rem;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  color: var(--text-dim); font-size: var(--fs-small); font-weight: 500;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.range-menu:hover { color: var(--text); border-color: var(--text-faint); box-shadow: var(--shadow-control-hover); }
+.range-menu:focus-within { color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.range-menu select {
+  appearance: none; border: 0; background-color: transparent; color: inherit;
+  font: inherit; cursor: pointer; padding: 0 1rem 0 0; outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 5px) 55%, 100% 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.range-menu select option { background: var(--tooltip-bg); color: var(--text); }
+
+/* ------------------------------------------------ where it went (3.7.0) */
+
+/* The kind label carries its icon in the kind's own ink, where a colour
+   square used to stand in for it. */
+.net-kind { font-size: var(--fs-small); gap: 0.5rem; }
+.net-kind--wifi .icon { color: var(--accent-bright); }
+.net-kind--wired .icon, .net-kind--mobile .icon {
+  color: color-mix(in srgb, var(--accent) var(--second-ink-keep), var(--second-ink-mix));
+}
+.net-kind--other .icon { color: var(--text-dim); }
+
+.donut-wrap {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+  gap: 2.2rem;
+  align-items: center;
+}
+.donut { position: relative; width: 100%; aspect-ratio: 1; max-width: 230px; }
+.donut-centre {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none; text-align: center;
+}
+.donut-centre-value { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.donut-centre-label { font-size: 0.8125rem; color: var(--text-faint); margin-top: 0.15rem; }
+.donut-list td.ssid-name { display: flex; align-items: center; gap: 0.55rem; }
+.donut-key { display: inline-flex; flex-shrink: 0; }
+.donut-pct { color: var(--text-dim); width: 5.5rem; }
+@media (max-width: 640px) { .donut-wrap { grid-template-columns: 1fr; justify-items: center; } }
+
+/* A tooltip outside Charts.tsx's inline shell, styled from the same tokens. */
+.chart-tooltip {
+  background: var(--tooltip-bg); border: 1px solid var(--tooltip-border);
+  border-radius: 10px; padding: 0.7rem 0.9rem; font-size: 14px;
+  box-shadow: var(--tooltip-shadow); font-variant-numeric: tabular-nums;
+}
+.chart-tooltip-head { display: flex; align-items: center; gap: 0.45rem; color: var(--text); font-weight: 600; margin-bottom: 6px; }
+.chart-tooltip-value { color: var(--accent-bright); font-size: 17px; font-weight: 650; }
+.chart-tooltip-dim { color: var(--text-dim); margin-top: 3px; }
+
+/* ---------------------------------------------- By App views (3.7.0) */
+
+/* Table / Grid: two icon chips joined into one control. */
+.view-toggle {
+  display: inline-flex; flex-shrink: 0;
+  padding: 3px; gap: 2px;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+}
+.view-toggle button {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border: 0; border-radius: 999px; background: transparent;
+  color: var(--text-dim); font: inherit; font-size: var(--fs-small); font-weight: 500;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.view-toggle button:hover { color: var(--text); }
+.view-toggle button[data-active='true'] { color: var(--on-accent-fill); background: var(--accent-fill); }
+
+/* Each app a card: the logo large, the figures under it. Fluid columns, so
+   the grid fills whatever width the page has. */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  gap: 0.95rem;
+}
+.app-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-width: 0;
+  padding: 1.1rem 1.15rem 1rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.app-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+  background: var(--bg-panel);
+}
+.app-card--link { cursor: pointer; }
+.app-card--link:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); }
+.app-card--hidden { opacity: 0.55; }
+.app-card--hidden:hover { opacity: 1; }
+.app-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.85rem; }
+.app-card .app-icon { border-radius: 12px; }
+.app-card-actions { display: inline-flex; align-items: center; gap: 0.15rem; }
+.app-card-name { display: flex; align-items: center; gap: 0.35rem; min-width: 0; font-weight: 600; font-size: 1.02rem; }
+.app-card-name .rename-form { flex-direction: column; align-items: stretch; }
+.app-card-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
+.app-card-total { margin-top: 0.7rem; font-size: 1.55rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.app-card-io { display: flex; gap: 0.9rem; margin-top: 0.15rem; color: var(--text-dim); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+.app-card-days { margin-top: 0.15rem; color: var(--text-faint); font-size: 0.8125rem; }
+.app-card-bar { margin-top: 0.85rem; }
+
+/* A hidden app, listed again with "Show hidden". */
+.row--hidden td { opacity: 0.55; }
+.row--hidden:hover td { opacity: 1; }
+
+/* The row/card menu: fixed to its button, in a portal (components/AppMenu.tsx). */
+.app-menu {
+  position: fixed; z-index: 80;
+  display: flex; flex-direction: column;
+  min-width: 13rem; max-width: 20rem;
+  padding: 0.3rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop);
+  animation: fadeUp 160ms var(--ease) both;
+}
+.app-menu-item {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  border: 0; border-radius: 7px;
+  background: none; color: var(--text-dim);
+  font: inherit; font-size: var(--fs-small); text-align: left;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.app-menu-item:hover:not(:disabled), .app-menu-item:focus-visible { background: var(--row-hover); color: var(--text); }
+.app-menu-item:disabled { opacity: 0.5; cursor: default; }
+.app-menu-merge { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.5rem; }
+.app-menu-merge select.chip { max-width: none; width: 100%; }
+.app-menu-label { font-size: 0.8125rem; color: var(--text-dim); }
+.app-menu-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
+.app-menu .rename-error { padding: 0 0.5rem 0.4rem; }
+
+/* Separate: undoing a merge, one icon button at a Merged apps row's end. */
+.unmerge { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+.unmerge-btn { color: var(--text-dim); border-color: var(--border-strong); }
+.unmerge-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+.member-table th.undo-col, .member-table td.undo-col { width: 3.2rem; padding-left: 0; }
+.unmerge .rename-error { white-space: nowrap; }

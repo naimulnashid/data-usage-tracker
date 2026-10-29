@@ -1,37 +1,22 @@
 /*
-  The project site's only script. It runs in <head>, so the theme is set
-  before first paint, then draws the chart gallery once the DOM exists.
-
-  Every chart is generated from a fixed seed: identical on every load, and
-  nobody's usage. The shapes, colours and rules (spike threshold, upload
-  tint, heat-map ramp, null days as breaks) follow the dashboard's own
-  src/components/Charts.tsx, ActivityHeatmap.tsx and src/lib/app-colors.ts.
+  The live charts (components/Charts.astro): every chart the dashboard draws,
+  from a fixed random seed, so they are the same on every load and are
+  nobody's usage. Ported from the site's first, framework-free version; the
+  drawing follows the dashboard's own (src/components/Charts.tsx).
 */
 
-/* ------------------------------------------------------------------ theme */
-
-const THEME_KEY = 'dut-site-theme';
-
-function systemTheme() {
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+/** The theme on screen: the visitor's choice (ThemeToggle.astro), or the system's. */
+function currentTheme() {
+  const chosen = document.documentElement.dataset.theme;
+  if (chosen === 'light' || chosen === 'dark') return chosen;
+  return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
-function storedTheme() {
-  try {
-    const t = localStorage.getItem(THEME_KEY);
-    return t === 'light' || t === 'dark' ? t : null;
-  } catch { return null; }
+/** A chart's range menu as a day count: the whole series for "All". */
+function rangeDays(id, all) {
+  const v = document.getElementById(id)?.value;
+  return v === 'all' ? all : Math.min(all, Number(v) || 30);
 }
-
-function applyTheme(t) {
-  document.documentElement.dataset.theme = t;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', t === 'light' ? '#f4f5f7' : '#000000');
-}
-
-applyTheme(storedTheme() ?? systemTheme());
-
-/* ------------------------------------------------------------------ data */
 
 function mulberry32(seed) {
   return function () {
@@ -335,7 +320,7 @@ function drawTrend(d) {
     gap = `<rect x="${gx0}" y="${T}" width="${gx1 - gx0}" height="${H - B - T}" fill="var(--grid)" opacity="0.5"/>
       <text x="${(gx0 + gx1) / 2}" y="${T + 14}" text-anchor="middle">not collected</text>`;
   }
-  const spikes = days.map((dd, i) => (dd.total !== null && dd.total > spikeAt ? `<circle cx="${x(i)}" cy="${y(dd.total)}" r="4" fill="var(--danger)" class="fade"/>` : '')).join('');
+  const spikes = days.map((dd, i) => (dd.total !== null && dd.total > spikeAt ? `<circle cx="${x(i)}" cy="${y(dd.total)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" class="fade"/>` : '')).join('');
   const hits = days.map((dd, i) => {
     const tip = dd.total === null
       ? `<b>${fmtDayLong(dd.date)}</b>No data collected`
@@ -354,16 +339,13 @@ function drawTrend(d) {
     </svg>`;
 }
 
-function topN(d, n) {
-  const top = d.apps.slice(0, n);
-  const rest = d.apps.slice(n);
-  return { top, rest };
-}
-
 function drawStack(d) {
   const W = 1000, H = 270, L = 56, R = 8, T = 10, B = 26;
-  const { top, rest } = topN(d, 8);
-  const days = d.days;
+  const n = rangeDays('r-stack', d.days.length);
+  const days = d.days.slice(-n);
+  const ranked = d.apps.map((a) => ({ ...a, series: a.series.slice(-n), total: a.series.slice(-n).reduce((s, v) => s + (v ?? 0), 0) }))
+    .sort((p, q) => q.total - p.total);
+  const top = ranked.slice(0, 8), rest = ranked.slice(8);
   const series = [...top.map((a) => ({ name: a.name, color: ink(a.color), vals: a.series }))];
   series.push({ name: 'Other', color: OTHER, vals: days.map((_, i) => rest.reduce((s, a) => (a.series[i] === null ? null : (s ?? 0) + a.series[i]), 0)) });
   const totals = days.map((_, i) => (days[i].total === null ? null : series.reduce((s, se) => s + (se.vals[i] ?? 0), 0)));
@@ -390,8 +372,8 @@ function drawStack(d) {
     return `<rect x="${x(i) - w / 2}" y="${T}" width="${w}" height="${H - B - T}" fill="transparent" data-tip="${esc(tip)}"/>`;
   }).join('');
   document.getElementById('v-stack').innerHTML =
-    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily usage by app, eight largest apps stacked with the rest as Other">
-      ${yAxis(max, L, W - R, T, H - B)}${layers}${xDates(days, x, H - 6, 10)}${hits}</svg>`;
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily usage by app over ${days.length} days, eight largest apps stacked with the rest as Other">
+      ${yAxis(max, L, W - R, T, H - B)}${layers}${xDates(days, x, H - 6, Math.max(1, Math.round(days.length / 10)))}${hits}</svg>`;
   document.getElementById('v-stack-legend').innerHTML =
     series.map((se) => `<span><i style="background:${se.color}"></i>${esc(se.name)}</span>`).join('');
 }
@@ -442,9 +424,9 @@ function drawTop(d) {
     const by = T + i * rowH + 5;
     const bh = rowH - 10;
     const name = a.name.length > 28 ? a.name.slice(0, 27) + '…' : a.name;
-    const tip = `<b>${esc(a.name)}</b>${tipRow(ink(a.color), 'Download', fmt(a.rx))}${tipRow(ink(uploadTint(a.color)), 'Upload', fmt(a.tx))}${tourShown() ? '<div style="margin-top:4px;color:var(--text-faint)">Click to open its detail page</div>' : ''}`;
+    const tip = `<b>${esc(a.name)}</b>${tipRow(ink(a.color), 'Download', fmt(a.rx))}${tipRow(ink(uploadTint(a.color)), 'Upload', fmt(a.tx))}`;
     s += `<text x="${L - 8}" y="${by + bh / 2 + 4}" text-anchor="end">${esc(name)}</text>`;
-    s += `<g class="draw-x" style="animation-delay:${i * 40}ms;cursor:${tourShown() ? 'pointer' : 'default'}" data-tip="${esc(tip)}" data-open="detail">
+    s += `<g class="draw-x" style="animation-delay:${i * 40}ms;cursor:default" data-tip="${esc(tip)}">
       <rect x="${L}" y="${by}" width="${x(a.rx) - L}" height="${bh}" fill="${ink(a.color)}"/>
       <rect x="${x(a.rx)}" y="${by}" width="${Math.max(2, x(a.total) - x(a.rx))}" height="${bh}" fill="${ink(uploadTint(a.color))}" rx="4"/></g>`;
   });
@@ -455,8 +437,9 @@ function drawAppDay(d) {
   const W = 1000, H = 270, L = 56, R = 6, T = 8, B = 24;
   const app = d.apps.find((a) => a.name === d.cfg.detailApp);
   const up = app.up ?? d.cfg.upShare;
-  const vals = app.series.slice(-60);
-  const days = d.days.slice(-60);
+  const n = rangeDays('r-appday', d.days.length);
+  const vals = app.series.slice(-n);
+  const days = d.days.slice(-n);
   const max = niceMax(Math.max(...vals.filter((v) => v !== null)) * 1.05);
   const slot = (W - L - R) / vals.length;
   const bw = Math.max(2, slot * 0.7);
@@ -473,15 +456,14 @@ function drawAppDay(d) {
   });
   const xd = (i) => L + slot * i + slot / 2;
   const peakI = vals.reduce((b, v, i) => ((v ?? 0) > (vals[b] ?? 0) ? i : b), 0);
+  document.getElementById('appday-sub').textContent = `${app.name}. Heaviest day ${fmtDay(days[peakI].date)} · ${fmt(vals[peakI])}`;
   document.getElementById('v-appday').innerHTML =
-    callout('Heaviest day', fmtDay(days[peakI].date), fmt(vals[peakI])) +
-    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(app.name)}, daily usage over 60 days">${yAxis(max, L, W - R, T, H - B)}${bars}${xDates(days, xd, H - 6, 7)}</svg>
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(app.name)}, daily usage over ${days.length} days">${yAxis(max, L, W - R, T, H - B)}${bars}${xDates(days, xd, H - 6, Math.max(1, Math.round(days.length / 9)))}</svg>
     <div class="legend"><span><i style="background:var(--down)"></i>Download</span><span><i style="background:var(--up)"></i>Upload</span></div>`;
 }
 
 function drawHeat(d, expanded) {
-  const theme = document.documentElement.dataset.theme;
-  const ramp = HEAT[theme][d.cfg === DEVICES.windows ? 'windows' : 'android'];
+  const ramp = HEAT[currentTheme()][d.cfg === DEVICES.windows ? 'windows' : 'android'];
   const byDate = new Map(d.days.map((x) => [x.date.getTime(), x.total]));
   const first = d.days[0].date.getTime();
   const max = Math.max(...d.days.map((x) => x.total ?? 0));
@@ -559,29 +541,60 @@ function drawSplit() {
     </div>`;
 }
 
+const ICON = {
+  wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>',
+  wired: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.5h16v10H15v2.5H9v-2.5H4z"/><path d="M8 11v2.5M11 11v2.5M14 11v2.5M17 11v2.5"/></svg>',
+  mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 19v-3M10 19v-6M15 19v-9M20 19V6"/></svg>',
+};
+
+/** An annular slice from angle a to b (radians, 0 at twelve o'clock). */
+function slice(cx, cy, r0, r1, a, b) {
+  const p = (r, t) => `${(cx + r * Math.sin(t)).toFixed(2)},${(cy - r * Math.cos(t)).toFixed(2)}`;
+  const large = b - a > Math.PI ? 1 : 0;
+  return `M${p(r1, a)}A${r1},${r1} 0 ${large} 1 ${p(r1, b)}L${p(r0, b)}A${r0},${r0} 0 ${large} 0 ${p(r0, a)}Z`;
+}
+
 function drawWhere(d, device) {
   const total = d.days.reduce((s, x) => s + (x.total ?? 0), 0);
   const wifi = total * d.cfg.wifiShare, other = total - wifi;
   const [a, b] = d.cfg.split;
-  const nets = d.cfg.networks;
-  const top = Math.max(...nets.map((n) => n.share));
-  const rows = nets.map((n, i) => `<div class="netrow"><span class="n ${n.muted ? 'unnamed' : ''}" title="${esc(n.name)}">${esc(n.name)}${n.alias ? ` <small style="color:var(--text-faint)">+${n.alias}</small>` : ''}</span>
-      <span class="v" ${n.muted && device === 'android' ? 'style="color:var(--text-faint)"' : ''}>${fmt(wifi * n.share)}</span>
-      <span class="bar-track"><span class="bar-fill" style="display:block;width:${(n.share / top) * 100}%;background:${n.muted && device === 'android' ? 'var(--text-faint)' : 'var(--accent)'};animation-delay:${i * 80}ms"></span></span></div>`).join('');
-  const note = device === 'android'
-    ? `<p class="half-sub" style="margin:12px 0 0">Tethering kept apart: ${fmt(d.cfg.tethered)} relayed for other devices is excluded from every figure on the phone's pages, because a laptop tethered to it has already counted those bytes.</p>`
-    : `<p class="half-sub" style="margin:12px 0 0">Windows' own Data usage page shows one network at a time, so its figure matches one row here rather than the total.</p>`;
-  document.getElementById('v-where').innerHTML = `
-    <div class="split-bar" role="img" aria-label="${a} ${pct(wifi / total)}, ${b} ${pct(other / total)}">
-      <span style="width:${(wifi / total) * 100}%;background:var(--accent)"></span>
-      <span style="width:${(other / total) * 100}%;background:var(--up);animation-delay:150ms"></span></div>
-    <div class="halves">
-      <div><div class="half-label"><i style="background:var(--accent)"></i>${a}</div>
-        <div class="half-value accent-text">${fmt(wifi)}</div><div class="half-sub">${pct(wifi / total)} of all traffic</div></div>
-      <div><div class="half-label"><i style="background:var(--up)"></i>${b}</div>
+  const kinds = `
+    <div class="net-kinds">
+      <div><div class="kind-label">${ICON.wifi}${a}</div>
+        <div class="half-value" style="color:var(--accent-bright)">${fmt(wifi)}</div><div class="half-sub">${pct(wifi / total)} of all traffic</div></div>
+      <div><div class="kind-label second">${device === 'android' ? ICON.mobile : ICON.wired}${b}</div>
         <div class="half-value">${fmt(other)}</div><div class="half-sub">${pct(other / total)} of all traffic</div></div>
+    </div>`;
+  if (device === 'android') {
+    document.getElementById('v-where').innerHTML = `
+      <div class="split-bar" role="img" aria-label="${a} ${pct(wifi / total)}, ${b} ${pct(other / total)}" style="margin-bottom:16px">
+        <span style="width:${(wifi / total) * 100}%;background:var(--accent)"></span>
+        <span style="width:${(other / total) * 100}%;background:var(--up);animation-delay:150ms"></span></div>${kinds}
+      <p class="half-sub" style="margin:12px 0 0">Tethering kept apart: ${fmt(d.cfg.tethered)} relayed for other devices is excluded from every figure on the phone's pages, because a laptop tethered to it has already counted those bytes.</p>`;
+    return;
+  }
+  // Wi-Fi networks step down the accent, largest first; an unnamed one is faint.
+  const steps = [100, 74, 56, 42];
+  const nets = d.cfg.networks.map((n) => ({ ...n, bytes: wifi * n.share }));
+  const sum = nets.reduce((s, n) => s + n.bytes, 0);
+  let at = 0, k = 0, ring = '';
+  const colors = nets.map((n) => (n.muted ? 'var(--text-faint)' : `color-mix(in oklab, var(--accent) ${steps[Math.min(k++, steps.length - 1)]}%, var(--surface))`));
+  nets.forEach((n, i) => {
+    const sweep = (n.bytes / sum) * Math.PI * 2;
+    const gap = nets.length > 1 ? 0.025 : 0;
+    ring += `<path d="${slice(100, 100, 68, 100, at + gap / 2, at + sweep - gap / 2)}" fill="${colors[i]}" class="fade" data-tip="${esc(`<b>${esc(n.name)}</b>${fmt(n.bytes)} · ${pct(n.bytes / total)} of all traffic`)}"/>`;
+    at += sweep;
+  });
+  const list = nets.map((n, i) => `<div class="net-item"><span style="color:${colors[i]}">${ICON.wifi}</span>
+      <span class="n ${n.muted ? 'unnamed' : ''}" title="${esc(n.name)}">${esc(n.name)}${n.alias ? ` <small style="color:var(--text-faint)">+${n.alias}</small>` : ''}</span>
+      <span>${fmt(n.bytes)}</span><span class="p">${pct(n.bytes / total)}</span></div>`).join('');
+  document.getElementById('v-where').innerHTML = `${kinds}
+    <div class="donut-wrap">
+      <div class="donut"><svg viewBox="0 0 200 200" role="img" aria-label="Traffic by network: ${nets.map((n) => `${esc(n.name)} ${pct(n.bytes / total)}`).join(', ')}">${ring}</svg>
+        <div class="donut-centre"><b>${fmt(total)}</b><span>${nets.length} networks</span></div></div>
+      <div class="net-list">${list}</div>
     </div>
-    <div class="netlist"><div class="netlist-head"><b>${device === 'android' ? 'Wi-Fi networks' : 'Networks'}</b><span>${device === 'android' ? 'collected over USB' : `${nets.length} networks`}</span></div>${rows}</div>${note}`;
+    <p class="half-sub" style="margin:12px 0 0">Windows' own Data usage page shows one network at a time, so its figure matches one row here rather than the total.</p>`;
 }
 
 let tableSort = { key: 'total', asc: false };
@@ -591,16 +604,13 @@ function drawTable(d) {
     const r = tableSort.key === 'name' ? a.name.localeCompare(b.name) : a[tableSort.key] - b[tableSort.key];
     return tableSort.asc ? r : -r;
   });
-  const maxShare = d.apps[0].total / d.attributed;
   const head = cols.map(([k, label, num]) => {
     const sorted = tableSort.key === k;
     return `<th class="${num ? 'num' : ''}" aria-sort="${sorted ? (tableSort.asc ? 'ascending' : 'descending') : 'none'}"><button type="button" data-sort="${k}">${label}${sorted ? (tableSort.asc ? ' ↑' : ' ↓') : ''}</button></th>`;
-  }).join('') + '<th><button type="button" tabindex="-1" style="cursor:default">Share</button></th>';
+  }).join('');
   const body = apps.map((a) => {
-    const share = a.total / d.attributed;
     return `<tr><td><span class="app-cell"><i style="background:${ink(a.color)}"></i>${esc(a.name)}${a.kind ? ` <span class="badge">${a.kind}</span>` : ''}</span></td>
-      <td class="num">${fmt(a.tx)}</td><td class="num">${fmt(a.rx)}</td><td class="num total">${fmt(a.total)}</td><td class="num" style="color:var(--text-dim)">${a.rows.toLocaleString('en-US')}</td>
-      <td><span class="share"><span class="bar-track"><span class="bar-fill" style="display:block;width:${(share / maxShare) * 100}%;background:${ink(a.color)}"></span></span><span>${pct(share)}</span></span></td></tr>`;
+      <td class="num">${fmt(a.tx)}</td><td class="num">${fmt(a.rx)}</td><td class="num total">${fmt(a.total)}</td><td class="num" style="color:var(--text-dim)">${a.rows.toLocaleString('en-US')}</td></tr>`;
   }).join('');
   const el = document.getElementById('v-table');
   el.innerHTML = `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -618,8 +628,6 @@ function drawAll() {
   drawStats(d); drawTrend(d); drawHeat(d, false); drawStack(d); drawHour(d);
   drawTop(d); drawAppDay(d); drawSplit(); drawWhere(d, device); drawTable(d);
 }
-
-/* ------------------------------------------------------------------ wiring */
 
 function wireTooltip() {
   const tip = document.getElementById('tip');
@@ -639,63 +647,20 @@ function wireTooltip() {
   document.addEventListener('scroll', hide, { passive: true });
 }
 
-/** The tour is hidden pending review (see index.html); while it is, a Top 10
-    bar opens nothing, so it neither says so nor looks clickable. */
-const tourShown = () => !document.getElementById('tour')?.hidden;
-
-/** `npm run demo:shots` writes each page twice, from one history: dark, and `-light`. */
-function shotSrc(name) {
-  return `screenshots/${name}${document.documentElement.dataset.theme === 'light' ? '-light' : ''}.webp`;
-}
-
-function selectShot(btn) {
-  document.querySelectorAll('.tabs [role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
-  const img = document.getElementById('shot-img');
-  img.src = shotSrc(btn.dataset.shot);
-  img.alt = btn.dataset.cap;
-  document.querySelector('.shot-scroll').scrollTop = 0;
-  // The phone capture is in the phone's accent; the tabs follow it.
-  document.getElementById('tour').dataset.device = btn.dataset.shot.startsWith('android') ? 'android' : 'windows';
-}
-
-/** The heat-map ramp and the screenshots are per theme; nothing else needs redrawing. */
-function retheme() {
-  drawAll();
-  const tab = document.querySelector('.tabs [aria-selected="true"]');
-  if (tab) document.getElementById('shot-img').src = shotSrc(tab.dataset.shot);
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('theme-btn').addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-    applyTheme(next);
-    try { localStorage.setItem(THEME_KEY, next); } catch { /* private window: still switches */ }
-    retheme();
-  });
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    if (!storedTheme()) { applyTheme(systemTheme()); retheme(); }
-  });
-
-  const tabs = document.querySelectorAll('.tabs [role="tab"]');
-  tabs.forEach((b) => b.addEventListener('click', () => selectShot(b)));
-  selectShot(tabs[0]);
-
-  const pickDevice = (b) => {
-    device = b.dataset.device;
-    document.querySelectorAll('.seg [role="radio"]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
-    document.getElementById('gallery').dataset.device = device;
-  };
-  document.querySelectorAll('.seg [role="radio"]').forEach((b) => b.addEventListener('click', () => { pickDevice(b); drawAll(); }));
-  // ?device=android opens the gallery on the phone, so either view can be linked.
-  const asked = new URLSearchParams(location.search).get('device');
-  if (asked === 'android') pickDevice(document.querySelector('.seg [data-device="android"]'));
-
-  document.getElementById('gallery').addEventListener('click', (e) => {
-    if (!e.target.closest('[data-open="detail"]') || !tourShown()) return;
-    selectShot(document.querySelector(`[data-shot="${device === 'android' ? 'android-overview' : 'windows-app-detail'}"]`));
-    document.getElementById('tour').scrollIntoView();
-  });
-
-  wireTooltip();
-  drawAll();
-});
+const section = document.getElementById('charts');
+const pickDevice = (b) => {
+  device = b.dataset.device;
+  document.querySelectorAll('#device-seg [role="radio"]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+  // The section, not just the gallery: the switch itself wears the device's accent.
+  section.dataset.device = device;
+  document.getElementById('gallery').dataset.device = device;
+};
+document.querySelectorAll('#device-seg [role="radio"]').forEach((b) => b.addEventListener('click', () => { pickDevice(b); drawAll(); }));
+// ?device=android opens the gallery on the phone, so either view can be linked.
+if (new URLSearchParams(location.search).get('device') === 'android') pickDevice(document.querySelector('#device-seg [data-device="android"]'));
+document.getElementById('r-stack').addEventListener('change', () => drawStack(DATA[device]));
+document.getElementById('r-appday').addEventListener('change', () => drawAppDay(DATA[device]));
+// The heat-map ramp is per theme; ThemeToggle.astro says when it changes.
+document.addEventListener('themechange', () => drawAll());
+wireTooltip();
+drawAll();

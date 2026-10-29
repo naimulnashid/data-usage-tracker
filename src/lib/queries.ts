@@ -22,9 +22,11 @@ import { configPath } from './config-path';
 import { resolveApp, type ResolvedApp } from './app-name';
 import { readRenames, WINDOWS_RENAMES } from './app-renames';
 import { readColorOverrides } from './app-color-overrides';
+import { readHidden, readMerges } from './app-prefs';
 import { deviceSlug } from './nav';
 import { assignColors, type AppColorMap } from './app-colors';
 import { toLocalBuckets, type AppKind } from './srum';
+import { RANGES, type ChartRange } from './scope';
 import {
   coveredDays, eachDay, fillDays, fillHours, isKnown, laterOf, quietDay, unknownDay,
   type DailyPoint, type DayRange,
@@ -162,21 +164,70 @@ function withDb<T>(fn: (db: DatabaseSync) => T): T {
   }
 }
 
-/** A resolved app plus the name it would have without the user's rename. */
-type Named = ResolvedApp & { baseName: string };
+/**
+ * A resolved app plus the name it would have without the user's rename, and
+ * the family it came from before any merge the user made (`sourceKey`, equal
+ * to `groupKey` when it was not merged).
+ */
+type Named = ResolvedApp & { baseName: string; sourceKey: string; sourceName: string };
 
 /**
- * `resolveApp`, with the user's renames (lib/app-renames.ts) applied to the
- * FAMILY's display name. Every query below that shows an app name goes through
- * this, so a rename reaches tables, charts, legends and the detail page from
- * one place. `baseName` is kept because colours and logos stay keyed by it.
+ * `resolveApp`, with the user's merges and renames (lib/app-prefs.ts,
+ * lib/app-renames.ts) applied to the FAMILY. Every query below that groups or
+ * names an app goes through this -- never `resolveApp` directly -- so a merge
+ * or a rename reaches tables, charts, legends and the detail page from one
+ * place. `baseName` is kept because colours and logos stay keyed by it.
+ *
+ * A merged family takes its target's key, name and kind; its members keep
+ * their own, which is how the target's Merged apps card can list them.
  */
 function appResolver(db: DatabaseSync): (identity: string, kind: AppKind) => Named {
   const renames = readRenames(db, WINDOWS_RENAMES);
-  return (identity, kind) => {
-    const r = resolveApp(identity, kind);
-    return { ...r, baseName: r.displayName, displayName: renames.get(r.groupKey) ?? r.displayName };
+  const merges = readMerges(db, WINDOWS_RENAMES);
+  // The target's own resolution, found once and only when a merge needs it.
+  let families: Map<string, ResolvedApp> | null = null;
+  const familyOf = (key: string): ResolvedApp | undefined => {
+    if (!families) {
+      families = new Map();
+      for (const r of db
+        .prepare('SELECT DISTINCT app_identity i, app_kind k FROM usage_records WHERE is_aggregate = 0')
+        .all() as { i: string; k: string }[]) {
+        const x = resolveApp(r.i, r.k as AppKind);
+        if (!families.has(x.groupKey)) families.set(x.groupKey, x);
+      }
+    }
+    return families.get(key);
   };
+  const cache = new Map<string, Named>();
+  return (identity, kind) => {
+    const id = `${kind}|${identity}`;
+    const hit = cache.get(id);
+    if (hit) return hit;
+    const r = resolveApp(identity, kind);
+    const into = merges.get(r.groupKey);
+    const family = (into && familyOf(into)) || r;
+    const named: Named = {
+      ...r,
+      groupKey: family.groupKey,
+      kind: family.kind,
+      baseName: family.displayName,
+      displayName: renames.get(family.groupKey) ?? family.displayName,
+      sourceKey: r.groupKey,
+      sourceName: renames.get(r.groupKey) ?? r.displayName,
+    };
+    cache.set(id, named);
+    return named;
+  };
+}
+
+/** The family a merged app now belongs to, or null when it is not merged. */
+export function mergedInto(groupKey: string): string | null {
+  return withDb((db) => readMerges(db, WINDOWS_RENAMES).get(groupKey) ?? null);
+}
+
+/** Family keys the user hid from the By App page. */
+export function getHiddenApps(): Set<string> {
+  return withDb((db) => readHidden(db, WINDOWS_RENAMES));
 }
 
 /**
@@ -489,6 +540,8 @@ export interface AppRow {
   days: number;
   /** Whether it earns a detail page. See `earnsDetailPage`. */
   detailed: boolean;
+  /** Hidden from the By App page by the user. Still counted everywhere. */
+  hidden: boolean;
 }
 
 /**
@@ -554,9 +607,10 @@ export function getByApp(scope: Scope): ByAppData {
       )
       .all(...sc.params) as { i: string; k: string; d: string }[];
 
+    const resolve = appResolver(db);
     const daysByGroup = new Map<string, Set<string>>();
     for (const row of dayRows) {
-      const { groupKey } = resolveApp(row.i, row.k as AppKind);
+      const { groupKey } = resolve(row.i, row.k as AppKind);
       const set = daysByGroup.get(groupKey) ?? new Set<string>();
       set.add(row.d);
       daysByGroup.set(groupKey, set);
@@ -567,13 +621,13 @@ export function getByApp(scope: Scope): ByAppData {
     // collapse back into one entry each -- without it, one app shows up several
     // times, each looking smaller than it is.
     const grouped = new Map<string, AppRow>();
-    const resolve = appResolver(db);
+    const hidden = readHidden(db, WINDOWS_RENAMES);
     for (const row of raw) {
       const { groupKey, displayName, baseName, kind } = resolve(row.i, row.k as AppKind);
       const cur = grouped.get(groupKey) ?? {
         key: groupKey, name: displayName, baseName, kind,
         sent: 0, received: 0, total: 0, share: 0, rows: 0,
-        days: 0, detailed: false,
+        days: 0, detailed: false, hidden: hidden.has(groupKey),
       };
       cur.sent += Number(row.s);
       cur.received += Number(row.r);
@@ -640,26 +694,16 @@ export interface AppDetail {
    * version), these are the programs a person would name -- "Claude Code" and
    * "Claude Desktop" inside "Claude". Length 1 means nothing was merged.
    */
-  members: { key: string; name: string; bytes: number; days: number }[];
+  members: AppMember[];
 }
 
-/**
- * Does this app exist anywhere in the database, ignoring scope?
- *
- * Lets the detail page tell "no such app" (a 404) apart from "this app moved
- * nothing in the selected window" (widen the range). Reporting the second for
- * the first sends the reader hunting for a date range that would never help.
- */
-export function appExists(groupKey: string): boolean {
-  return withDb((db) => {
-    const raw = db
-      .prepare(
-        `SELECT DISTINCT app_identity i, app_kind k
-         FROM usage_records WHERE is_aggregate = 0`,
-      )
-      .all() as { i: string; k: string }[];
-    return raw.some((x) => resolveApp(x.i, x.k as AppKind).groupKey === groupKey);
-  });
+export interface AppMember {
+  key: string;
+  name: string;
+  bytes: number;
+  days: number;
+  /** The app the user merged this program in with, which the card can undo; null when built in. */
+  mergedFrom: { key: string; name: string } | null;
 }
 
 /**
@@ -682,11 +726,12 @@ export function getAppDetail(groupKey: string, scope: Scope): AppDetail | null {
       )
       .all(...sc.params) as { i: string; k: string; s: number; r: number; n: number }[];
 
-    const mine = raw.filter((x) => resolveApp(x.i, x.k as AppKind).groupKey === groupKey);
+    const resolve = appResolver(db);
+    const mine = raw.filter((x) => resolve(x.i, x.k as AppKind).groupKey === groupKey);
     if (mine.length === 0) return null;
 
     const first = mine[0]!;
-    const resolved = appResolver(db)(first.i, first.k as AppKind);
+    const resolved = resolve(first.i, first.k as AppKind);
 
     const identities = mine
       .map((x) => ({ identity: x.i, kind: x.k, bytes: Number(x.s) + Number(x.r) }))
@@ -703,18 +748,21 @@ export function getAppDetail(groupKey: string, scope: Scope): AppDetail | null {
          FROM usage_records WHERE is_aggregate = 0 AND ${sc.sql}`,
       )
       .all(...sc.params) as { i: string; k: string; d: string }[]) {
-      const r = resolveApp(row.i, row.k as AppKind);
+      const r = resolve(row.i, row.k as AppKind);
       if (r.groupKey !== groupKey) continue;
       const set = memberDays.get(r.memberKey) ?? new Set<string>();
       set.add(row.d);
       memberDays.set(r.memberKey, set);
     }
 
-    const byMember = new Map<string, { key: string; name: string; bytes: number; days: number }>();
+    const byMember = new Map<string, AppMember>();
     for (const x of mine) {
-      const r = resolveApp(x.i, x.k as AppKind);
+      const r = resolve(x.i, x.k as AppKind);
       const cur = byMember.get(r.memberKey)
-        ?? { key: r.memberKey, name: r.memberName, bytes: 0, days: 0 };
+        ?? {
+          key: r.memberKey, name: r.memberName, bytes: 0, days: 0,
+          mergedFrom: r.sourceKey === groupKey ? null : { key: r.sourceKey, name: r.sourceName },
+        };
       cur.bytes += Number(x.s) + Number(x.r);
       byMember.set(r.memberKey, cur);
     }
@@ -830,78 +878,95 @@ export interface TimelinePoint {
   [app: string]: string | number | null;
 }
 
-export interface TimelineData {
+/** One range's stack: its own top apps, so the band that dominates is that period's. */
+export interface TimelineRange {
   points: TimelinePoint[];
   /** Series names, largest first, with 'Other' last when present. */
   series: string[];
+}
+
+export interface TimelineData {
+  /** Daily by app, per range in the chart's menu. */
+  ranges: Record<ChartRange, TimelineRange>;
+  /** Hour of day over all history. */
   hourly: { hour: number; sent: number; received: number; total: number }[];
 }
 
-export function getTimeline(scope: Scope, topN = 8): TimelineData {
+/**
+ * Daily by app for every range the chart offers, from ONE read of the
+ * per-day rows: the menu switches between them in the browser, and each
+ * range ranks its own top apps rather than slicing the all-time stack.
+ */
+export function getTimeline(topN = 8): TimelineData {
   return withDb((db) => {
-    const sc = scopeClause(db, scope);
-
     const raw = db
       .prepare(
         `SELECT local_date d, app_identity i, app_kind k,
                 SUM(bytes_sent + bytes_received) b
-         FROM usage_records WHERE is_aggregate = 0 AND ${sc.sql}
+         FROM usage_records WHERE is_aggregate = 0
          GROUP BY local_date, app_identity, app_kind`,
       )
-      .all(...sc.params) as { d: string; i: string; k: string; b: number }[];
-
-    const totalByApp = new Map<string, number>();
-    const perDay = new Map<string, Map<string, number>>();
+      .all() as { d: string; i: string; k: string; b: number }[];
 
     const resolve = appResolver(db);
-    for (const row of raw) {
-      const { displayName } = resolve(row.i, row.k as AppKind);
-      const bytes = Number(row.b);
-      totalByApp.set(displayName, (totalByApp.get(displayName) ?? 0) + bytes);
-      const day = perDay.get(row.d) ?? new Map<string, number>();
-      day.set(displayName, (day.get(displayName) ?? 0) + bytes);
-      perDay.set(row.d, day);
-    }
-
-    const top = [...totalByApp.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, topN)
-      .map(([name]) => name);
-    const topSet = new Set(top);
-    const hasOther = totalByApp.size > top.length;
-
-    const rowPoints: TimelinePoint[] = [...perDay.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, apps]) => {
-        const point: TimelinePoint = { date };
-        for (const name of top) point[name] = apps.get(name) ?? 0;
-        if (hasOther) {
-          let other = 0;
-          for (const [name, b] of apps) if (!topSet.has(name)) other += b;
-          point['Other'] = other;
-        }
-        return point;
-      });
-
-    // One point per day, like the trend above it: 0 across the stack on a day
-    // SRUM held and nothing moved, null on a day it never held -- which
-    // Recharts draws as a break in every band rather than a slope across it.
-    const series = hasOther ? [...top, 'Other'] : top;
-    const every = (value: 0 | null) => (date: string): TimelinePoint =>
-      Object.fromEntries([['date', date], ...series.map((s) => [s, value])]) as TimelinePoint;
+    const named = raw.map((row) => ({ d: row.d, name: resolve(row.i, row.k as AppKind).displayName, b: Number(row.b) }));
     const span = laptopSpan(db);
-    const points = span
-      ? fillDays(rowPoints, laterOf(sc.from, span.first), span.last, collectedDays(db), every(0), every(null))
-      : [];
+    const known = collectedDays(db);
+
+    const build = (days: number): TimelineRange => {
+      const from = scopeClause(db, { days }).from;
+      const totalByApp = new Map<string, number>();
+      const perDay = new Map<string, Map<string, number>>();
+      for (const row of named) {
+        if (row.d < from) continue;
+        totalByApp.set(row.name, (totalByApp.get(row.name) ?? 0) + row.b);
+        const day = perDay.get(row.d) ?? new Map<string, number>();
+        day.set(row.name, (day.get(row.name) ?? 0) + row.b);
+        perDay.set(row.d, day);
+      }
+
+      const top = [...totalByApp.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, topN)
+        .map(([name]) => name);
+      const topSet = new Set(top);
+      const hasOther = totalByApp.size > top.length;
+
+      const rowPoints: TimelinePoint[] = [...perDay.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, apps]) => {
+          const point: TimelinePoint = { date };
+          for (const name of top) point[name] = apps.get(name) ?? 0;
+          if (hasOther) {
+            let other = 0;
+            for (const [name, b] of apps) if (!topSet.has(name)) other += b;
+            point['Other'] = other;
+          }
+          return point;
+        });
+
+      // One point per day, like the trend: 0 across the stack on a day SRUM
+      // held and nothing moved, null on a day it never held -- which Recharts
+      // draws as a break in every band rather than a slope across it.
+      const series = hasOther ? [...top, 'Other'] : top;
+      const every = (value: 0 | null) => (date: string): TimelinePoint =>
+        Object.fromEntries([['date', date], ...series.map((s) => [s, value])]) as TimelinePoint;
+      const points = span
+        ? fillDays(rowPoints, laterOf(from, span.first), span.last, known, every(0), every(null))
+        : [];
+      return { points, series };
+    };
+
+    const ranges = Object.fromEntries(RANGES.map((days) => [days, build(days)])) as Record<ChartRange, TimelineRange>;
 
     const hourly = fillHours((
       db
         .prepare(
           `SELECT local_hour h, SUM(bytes_sent) s, SUM(bytes_received) r
-           FROM usage_records WHERE is_aggregate = 1 AND ${sc.sql}
+           FROM usage_records WHERE is_aggregate = 1
            GROUP BY local_hour ORDER BY local_hour`,
         )
-        .all(...sc.params) as { h: number; s: number; r: number }[]
+        .all() as { h: number; s: number; r: number }[]
     ).map((x) => ({
       hour: Number(x.h),
       sent: Number(x.s),
@@ -909,7 +974,7 @@ export function getTimeline(scope: Scope, topN = 8): TimelineData {
       total: Number(x.s) + Number(x.r),
     })), (hour) => ({ hour, sent: 0, received: 0, total: 0 }));
 
-    return { points, series, hourly };
+    return { ranges, hourly };
   });
 }
 
@@ -1130,6 +1195,23 @@ export function getWindowsAppNames(): Map<string, { name: string; base: string }
   });
 }
 
+/**
+ * Every family key on the laptop BEFORE the user's merges: what a hide or a
+ * merge may name. `getWindowsAppNames` folds merged families into their
+ * targets, so it cannot answer "does this key exist" for one being undone.
+ */
+export function getWindowsAppKeys(): Set<string> {
+  return withDb((db) => {
+    const out = new Set<string>();
+    for (const r of db
+      .prepare('SELECT DISTINCT app_identity i, app_kind k FROM usage_records WHERE is_aggregate = 0')
+      .all() as { i: string; k: string }[]) {
+      out.add(resolveApp(r.i, r.k as AppKind).groupKey);
+    }
+    return out;
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Where it went                                                      */
 /* ------------------------------------------------------------------ */
@@ -1150,6 +1232,8 @@ export interface NetworkBreakdown {
     named: boolean;
     aliases: string[];
     total: number;
+    /** The kind of link the profile was seen on, for its icon. */
+    kind: LinkKind;
   }[];
 }
 
@@ -1206,11 +1290,12 @@ export function getNetworkBreakdown(scope: Scope): NetworkBreakdown {
 
     const networks = [...perProfile.entries()]
       .map(([id, x]) => {
-        if (id === '0') return { id, label: 'No network profile', named: false, aliases: [], total: x.total };
+        const kind = linkKind(x.type);
+        if (id === '0') return { id, label: 'No network profile', named: false, aliases: [], total: x.total, kind };
         const p = labels.get(id);
         return p
-          ? { id, label: p.label, named: p.named, aliases: p.aliases, total: x.total }
-          : { id, label: prettyInterface(x.type), named: false, aliases: [], total: x.total };
+          ? { id, label: p.label, named: p.named, aliases: p.aliases, total: x.total, kind }
+          : { id, label: prettyInterface(x.type), named: false, aliases: [], total: x.total, kind };
       })
       .sort((a, b) => b.total - a.total);
 

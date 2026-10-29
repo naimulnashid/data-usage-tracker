@@ -6,7 +6,7 @@
  * write-ups; the short version is in the comments below.
  */
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const SCHEMA_SQL = /* sql */ `
 PRAGMA journal_mode = WAL;
@@ -175,6 +175,30 @@ CREATE TABLE IF NOT EXISTS app_colors (
   device     TEXT NOT NULL,
   app_key    TEXT NOT NULL,
   color      TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (device, app_key)
+);
+
+-- Apps the user hid from the By App page (schema 8, 2026-10-29). Keyed like
+-- app_renames. Hiding takes an app off that page's list, grid and Top 10
+-- only; every total, chart and other page still counts it. See
+-- lib/app-prefs.ts.
+CREATE TABLE IF NOT EXISTS app_hidden (
+  device     TEXT NOT NULL,
+  app_key    TEXT NOT NULL,
+  hidden_at  TEXT NOT NULL,
+  PRIMARY KEY (device, app_key)
+);
+
+-- Apps the user merged into another (schema 8). app_key is shown as into_key
+-- everywhere, as if the two had always been one app: totals, charts, colours
+-- and the detail page, whose Merged apps card lists it and can undo it.
+-- into_key is never itself merged: a merge into a merged app is stored
+-- against that app's target. See lib/app-prefs.ts.
+CREATE TABLE IF NOT EXISTS app_merges (
+  device     TEXT NOT NULL,
+  app_key    TEXT NOT NULL,
+  into_key   TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (device, app_key)
 );

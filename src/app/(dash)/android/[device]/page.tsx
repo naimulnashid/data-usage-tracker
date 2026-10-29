@@ -9,12 +9,13 @@ import {
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
-import { DailyTrendChart, HourlyChart, StackedTimelineChart } from '@/components/Charts';
-import { ChartLegend } from '@/components/ChartLegend';
+import { DailyTrendChart, HourlyChart } from '@/components/Charts';
+import { DailyByAppCard } from '@/components/RangedCharts';
+import { LinkIcon } from '@/components/WhereItWent';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { BusiestHour } from '@/components/BusiestHour';
 import { AndroidEmpty } from '@/components/AndroidEmpty';
-import { parseDays, scopeQuery } from '@/lib/scope';
+import { ALL_DAYS } from '@/lib/scope';
 import { daySpanLabel } from '@/lib/days';
 import {
   formatBytes, formatDayLong, formatDayShort, formatPercent, formatRelative, localDayOf, splitBytes,
@@ -53,11 +54,19 @@ export async function generateMetadata({
   return androidTitle(device);
 }
 
+/**
+ * The phone's "Wi-Fi networks" list, from the USB capture. Hidden since
+ * 3.7.0 at the user's request: every phone's capture is months old, so the
+ * card read "May 27 - Oct 8 · collected over USB Oct 8" above figures that
+ * no longer matched the rest of the page. The code and the data stay, to be
+ * reviewed later; flip this to show it again.
+ */
+const SHOW_USB_SSIDS = false;
+
 export default async function AndroidPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   if (!androidReady()) return <AndroidEmpty />;
 
@@ -65,16 +74,16 @@ export default async function AndroidPage({
   const device = deviceBySlug(slug);
   if (!device) notFound();
 
-  const sp = await searchParams;
-  const days = parseDays(sp.days);
+  // Every figure covers all history; the daily charts carry their own range.
+  const days = ALL_DAYS;
   const id = device.deviceId;
   const data = getAndroidOverview(id, days);
   const lastSync = getAndroidLastSuccess(id);
   const icons = getAppIconMap(device.slug, getAndroidAppNames(device.deviceId).values());
   const colors = getAndroidAppColorMap(id);
   const heatmap = getAndroidHeatmap(id);
-  const timeline = getAndroidTimeline(id, days);
-  const ssid = getSsidBreakdown(id, days);
+  const timeline = getAndroidTimeline(id);
+  const ssid = SHOW_USB_SSIDS ? getSsidBreakdown(id, days) : null;
 
   const coverage = data.coverage
     ? `${formatDayShort(data.coverage.first)} – ${formatDayShort(data.coverage.last)} · ${data.coverage.days} days`
@@ -155,19 +164,13 @@ export default async function AndroidPage({
         </CardTitle>
         <ActivityHeatmap
           daily={heatmap}
-          expandHref={`/android/${device.slug}/activity${scopeQuery(sp)}`}
+          expandHref={`/android/${device.slug}/activity`}
         />
       </Card>
 
       <div style={{ height: '1.15rem' }} />
 
-      <Card delay={300} hover={false}>
-        <CardTitle sub={`Top ${timeline.series.filter((x) => x !== 'Other').length} apps stacked; everything else grouped as Other`}>
-          Daily by app
-        </CardTitle>
-        <StackedTimelineChart data={timeline.points} series={timeline.series} colors={colors} />
-        <ChartLegend series={timeline.series} colors={colors} icons={icons} />
-      </Card>
+      <DailyByAppCard ranges={timeline.ranges} colors={colors} icons={icons} delay={300} />
 
       <div style={{ height: '1.15rem' }} />
 
@@ -184,9 +187,7 @@ export default async function AndroidPage({
       <div style={{ height: '1.15rem' }} />
 
       <Card delay={320} hover={false}>
-        <CardTitle sub="Wi-Fi against mobile data, across the whole recorded history">
-          Where it went
-        </CardTitle>
+        <CardTitle>Where it went</CardTitle>
         <div className="net-split">
           <div className="net-bar">
             <div
@@ -202,12 +203,12 @@ export default async function AndroidPage({
           </div>
           <div className="grid grid--2" style={{ marginTop: '1.4rem' }}>
             <div>
-              <div className="legend-item"><span className="legend-swatch net-swatch--wifi" />Wi-Fi</div>
+              <div className="legend-item net-kind net-kind--wifi"><LinkIcon kind="wifi" />Wi-Fi</div>
               <div className="stat-value net-value--wifi">{formatBytes(wifi)}</div>
               <div className="stat-sub">{formatPercent(netTotal ? (wifi / netTotal) * 100 : 0)} of all traffic</div>
             </div>
             <div>
-              <div className="legend-item"><span className="legend-swatch net-swatch--mobile" />Mobile data</div>
+              <div className="legend-item net-kind net-kind--mobile"><LinkIcon kind="mobile" />Mobile data</div>
               <div className="stat-value net-value--mobile">{formatBytes(mobile)}</div>
               <div className="stat-sub">{formatPercent(netTotal ? (mobile / netTotal) * 100 : 0)} of all traffic</div>
             </div>
@@ -218,7 +219,7 @@ export default async function AndroidPage({
             it to apps at all, so it is collected over USB by
             scripts/android-ssid-collect.ts and lives in its own table.
           */}
-          {ssid.networks.length > 0 && (
+          {ssid && ssid.networks.length > 0 && (
             <div className="ssid-block">
               <div className="ssid-head">
                 <span>Wi-Fi networks</span>

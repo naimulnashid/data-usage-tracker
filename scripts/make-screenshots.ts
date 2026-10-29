@@ -64,6 +64,8 @@ const SCALE = 2;
 interface Shot {
   name: string;
   path: string;
+  /** By App's list as a grid (components/AppsViews.tsx); the table otherwise. */
+  view?: 'grid';
 }
 
 /**
@@ -95,6 +97,7 @@ const THEMES = [
 const SHOTS: Shot[] = [
   { name: 'windows-overview', path: '/windows/my-pc' },
   { name: 'windows-apps', path: '/windows/my-pc/apps' },
+  { name: 'windows-apps-grid', path: '/windows/my-pc/apps', view: 'grid' },
   { name: 'windows-app-detail', path: '/windows/my-pc/apps/edge' },
   { name: 'android-overview', path: '/android/pixel-8' },
 ];
@@ -240,6 +243,7 @@ async function main(): Promise<void> {
       await cdp.evaluate(`localStorage.setItem('du-theme', ${JSON.stringify(theme)})`);
 
       for (const shot of SHOTS) {
+        await cdp.evaluate(`localStorage.setItem('du-apps-view', ${JSON.stringify(shot.view ?? 'table')})`);
         await cdp.send('Page.navigate', { url: `${BASE}${shot.path}` });
 
         // Loaded means: the streamed page replaced its skeleton, the sidebar has
@@ -253,6 +257,8 @@ async function main(): Promise<void> {
             if (!document.querySelector('main#content h1')) return false;
             if (document.querySelector('.skeleton')) return false;
             if (!document.querySelector('.sidebar[data-ready="true"]')) return false;
+            // The view is read from storage after hydration, so wait for it.
+            if (${JSON.stringify(shot.view === 'grid')} && !document.querySelector('.app-grid')) return false;
             const figures = [...document.querySelectorAll('[role=figure]')];
             return figures.every((f) => !f.querySelector('.recharts-responsive-container')
               || f.querySelector('svg.recharts-surface'));

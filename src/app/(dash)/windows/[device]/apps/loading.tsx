@@ -1,5 +1,5 @@
 import {
-  SkPageHead, SkCard, SkPlot, SkeletonGap, SkeletonTable,
+  SkPageHead, SkCard, SkPlot, SkViewToggle, SkeletonGap, SkeletonTable,
 } from '@/components/Skeleton';
 
 /**
@@ -21,11 +21,8 @@ export default function Loading() {
         <SkPlot height={440} />
       </SkCard>
       <SkeletonGap />
-      <SkCard
-        title="Apps"
-        sub="Percentages are of attributed traffic, so they will not quite reach the headline total — the remainder is traffic SRUM could not attribute to a process."
-      >
-        <SkeletonTable rows={11} columns={6} />
+      <SkCard title="Apps" aside={<SkViewToggle />}>
+        <SkeletonTable rows={11} columns={5} />
       </SkCard>
     </>
   );

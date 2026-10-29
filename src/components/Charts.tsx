@@ -163,7 +163,21 @@ export function DailyTrendChart({
         <Area
           type="monotone" dataKey="total" stroke="var(--accent)" strokeWidth={2}
           fill="url(#trendFill)" animationDuration={900} animationEasing="ease-out"
-          dot={false} activeDot={{ r: 5, fill: 'var(--accent-bright)', stroke: 'var(--bg-panel)', strokeWidth: 2 }}
+          // A point marks each day well above trend, in the line's own colour:
+          // the line says where, the point says "this one". Red stays for the
+          // tooltip's wording, so a spike is flagged without a second hue on
+          // the plot.
+          dot={(props: { cx?: number; cy?: number; index?: number; payload?: DailyPoint }) => {
+            const t = props.payload?.total ?? 0;
+            if (!(spikeAt > 0 && t > spikeAt) || props.cx == null || props.cy == null) return <g key={props.index} />;
+            return (
+              <circle
+                key={props.index} cx={props.cx} cy={props.cy} r={4.5}
+                fill="var(--accent)" stroke="var(--bg-panel)" strokeWidth={2}
+              />
+            );
+          }}
+          activeDot={{ r: 5, fill: 'var(--accent-bright)', stroke: 'var(--bg-panel)', strokeWidth: 2 }}
         />
       </AreaChart>
     </ResponsiveContainer>

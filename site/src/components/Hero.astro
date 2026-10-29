@@ -1,0 +1,167 @@
+---
+import Icon from './Icon.astro';
+import Shot from './Shot.astro';
+import { screenshot } from '../lib/screenshots';
+import { LINKS } from '../lib/site';
+
+const widths = [640, 960, 1280, 1600];
+const sizes = '(min-width: 1180px) 1040px, calc(100vw - 48px)';
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="container">
+    <div class="hero-copy rise">
+      <p class="eyebrow">Open source · Windows and Android · Local-only</p>
+      <h1 id="hero-title"><span class="line">Your per-app data usage,</span> <span class="line accent">kept for good.</span></h1>
+      <p class="hero-lead">
+        Windows keeps 30 to 60 days and a reset wipes them. This keeps every day, on a drive that survives.
+      </p>
+      <div class="buttons">
+        <a class="button button-primary" href={LINKS.setup}>
+          <Icon name="download" />
+          Set it up
+        </a>
+        <a class="button button-secondary" href={LINKS.repo}>
+          <Icon name="github" />
+          View on GitHub
+        </a>
+      </div>
+      <ul class="hero-facts" aria-label="At a glance">
+        <li><Icon name="check" /> Free, MIT license</li>
+        <li><Icon name="check" /> Nothing leaves your network</li>
+        <li><Icon name="check" /> Windows 10/11 · Android 8+</li>
+      </ul>
+    </div>
+
+    <figure class="hero-shots rise" style="animation-delay: 80ms">
+      <div class="behind" data-device="android">
+        <Shot
+          class="frame"
+          shot={screenshot('android-overview')}
+          alt="A phone's overview, in its green accent: totals, then the daily trend"
+          widths={widths}
+          sizes={sizes}
+          crop={16 / 10}
+        />
+      </div>
+      <Shot
+        class="frame front"
+        shot={screenshot('windows-overview')}
+        alt="The laptop's overview: all-time, 30-day, 7-day and today's totals, then the daily trend with its spike days marked"
+        widths={widths}
+        sizes={sizes}
+        crop={16 / 10}
+        eager
+      />
+      <figcaption>The laptop's overview, and a phone's behind it. Every number shown is invented.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-top: clamp(48px, 8vw, 96px);
+    padding-bottom: clamp(56px, 8vw, 104px);
+    background:
+      radial-gradient(900px 560px at 4% -12%, var(--laptop-glow), transparent 70%),
+      radial-gradient(760px 560px at 100% 52%, var(--phone-glow), transparent 70%);
+  }
+
+  /* Two lines on wide screens, one phrase each; phones wrap within them. */
+  h1 {
+    font-size: clamp(2.3rem, 5.6vw, 4.4rem);
+    font-weight: 680;
+    letter-spacing: -0.045em;
+    line-height: 1.04;
+  }
+
+  h1 .line {
+    display: block;
+  }
+
+  h1 .accent {
+    color: var(--accent-bright);
+  }
+
+  .hero-lead {
+    margin-top: 22px;
+    color: var(--text-dim);
+    font-size: clamp(1.125rem, 1.6vw, 1.25rem);
+    line-height: 1.5;
+  }
+
+  /* One line where it fits; below that it wraps like any paragraph. */
+  @media (min-width: 1100px) {
+    .hero-lead {
+      white-space: nowrap;
+    }
+  }
+
+  .buttons {
+    margin-top: 30px;
+  }
+
+  .hero-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .hero-facts li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .hero-facts :global(svg) {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-bright);
+  }
+
+  /* The laptop's overview in front, a phone's behind it, raised and to the right. */
+  .hero-shots {
+    position: relative;
+    margin-top: clamp(48px, 7vw, 76px);
+    padding-top: clamp(28px, 4vw, 52px);
+  }
+
+  .hero-shots :global(.front) {
+    position: relative;
+    width: 90%;
+  }
+
+  .behind {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 90%;
+    opacity: 0.9;
+  }
+
+  .hero-shots figcaption {
+    margin-top: 16px;
+    color: var(--text-faint);
+    font-size: 0.875rem;
+  }
+
+  @media (max-width: 640px) {
+    .behind {
+      display: none;
+    }
+
+    .hero-shots {
+      padding-top: 0;
+    }
+
+    .hero-shots :global(.front) {
+      width: 100%;
+    }
+  }
+</style>

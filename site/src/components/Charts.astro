@@ -1,0 +1,110 @@
+---
+/**
+ * Every chart in the dashboard, drawn live by scripts/charts.js from a fixed
+ * seed: the same on every load, and nobody's usage. The ids are where the
+ * script draws; each card names the pages the chart is on.
+ */
+import '../styles/charts.css';
+import Icon from './Icon.astro';
+
+const ranges = [
+  ['7', '7d'],
+  ['30', '30d'],
+  ['90', '90d'],
+  ['all', 'All'],
+];
+---
+
+<section class="section" id="charts" data-device="windows" aria-labelledby="charts-title">
+  <div class="container">
+    <div class="charts-head section-head">
+      <div>
+        <p class="eyebrow"><Icon name="chart" /> Live charts</p>
+        <h2 id="charts-title">Every chart in the dashboard, live.</h2>
+        <p class="lead"><Icon name="pointer" class="inline-icon" /> Hover, sort and switch device. Every number is invented.</p>
+      </div>
+      <div class="seg" id="device-seg" role="radiogroup" aria-label="Device">
+        <button role="radio" aria-checked="true" data-device="windows"><Icon name="laptop" />Laptop</button>
+        <button role="radio" aria-checked="false" data-device="android"><Icon name="smartphone" />Phone</button>
+      </div>
+    </div>
+
+    <div class="gallery" id="gallery" data-device="windows">
+      <article class="viz">
+        <header><h3>Headline totals</h3><span class="where">Overview · App detail</span></header>
+        <div class="stats" id="v-stats"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Daily trend</h3><span class="where">Overview</span></header>
+        <p>A point marks each day above 2.5 times the average, in the line's own colour. A day never collected is a <em>break</em> in the line, not a zero.</p>
+        <div class="chart" id="v-trend"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Activity heat map</h3><span class="where">Overview · expanded Activity page</span></header>
+        <p>Outlined cells were never collected, which is different from a quiet day. <b>Expand</b> opens every 26-week block since collection began, on one colour scale.</p>
+        <div class="chart" id="v-heat"></div>
+      </article>
+
+      <article class="viz">
+        <header>
+          <h3>Daily usage by app</h3>
+          <span class="where">Overview</span>
+        </header>
+        <div class="viz-bar">
+          <p>Each range ranks its own top eight. Apps keep their brand colour, held inside a lightness band so pale brands stay visible in both themes.</p>
+          <label class="range"><Icon name="clock" /><span class="visually-hidden">Range</span>
+            <select id="r-stack">{ranges.map(([v, l]) => <option value={v} selected={v === '30'}>{l}</option>)}</select>
+          </label>
+        </div>
+        <div class="chart" id="v-stack"></div>
+        <div class="legend" id="v-stack-legend"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Hour of day</h3><span class="where">Overview · App detail</span></header>
+        <p>Local time, summed over all history. A phone reports in Android's two-hour buckets.</p>
+        <div class="chart" id="v-hour"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Top 10</h3><span class="where">By App</span></header>
+        <p>Upload is a tint of the app's colour, darker rather than lighter for pale brands so every bar stays visibly split.</p>
+        <div class="chart" id="v-top"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Daily usage, one app</h3><span class="where">App detail</span></header>
+        <div class="viz-bar">
+          <p id="appday-sub">The heaviest day of the range sits in the subtitle.</p>
+          <label class="range"><Icon name="clock" /><span class="visually-hidden">Range</span>
+            <select id="r-appday">{ranges.map(([v, l]) => <option value={v} selected={v === '30'}>{l}</option>)}</select>
+          </label>
+        </div>
+        <div class="chart" id="v-appday"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>One app against the rest</h3><span class="where">Laptop overview, optional</span></header>
+        <p>Naming one heavy app in config (<code>splitApp</code>) sets it apart, so everything else reads at its own scale. A laptop setting, so it shows in either mode.</p>
+        <div id="v-split"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>Where it went</h3><span class="where">Overview</span></header>
+        <p>The laptop learns network names by watching which one it is on, and draws them as a ring. A phone shows Wi-Fi against mobile data.</p>
+        <div id="v-where"></div>
+      </article>
+
+      <article class="viz">
+        <header><h3>The app table</h3><span class="where">By App</span></header>
+        <p>Lists every app with enough activity for a detail page, expandable to every app ever seen, or shown as a grid. Click a header to sort, again to reverse.</p>
+        <div id="v-table"></div>
+      </article>
+    </div>
+  </div>
+  <div class="tip" id="tip" role="status" aria-live="polite" hidden></div>
+</section>
+
+<script src="../scripts/charts.js"></script>

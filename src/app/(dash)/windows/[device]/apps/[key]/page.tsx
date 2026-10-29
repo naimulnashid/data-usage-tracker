@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { windowsTitle } from '@/lib/page-title';
 import {
-  getAppDetail, getAppColorMap, getAppColorOverrides, getRowCount, appExists, databaseExists,
-  earnsDetailPage, windowsDeviceBySlug, getWindowsAppNames, type Scope,
+  getAppDetail, getAppColorMap, getAppColorOverrides, getRowCount, databaseExists,
+  earnsDetailPage, windowsDeviceBySlug, getWindowsAppNames, mergedInto, type Scope,
 } from '@/lib/queries';
 import { colorOf, rawColorOf } from '@/lib/app-colors';
 import { getAppIconMap } from '@/lib/app-icons-server';
@@ -14,9 +14,12 @@ import { BusiestHour } from '@/components/BusiestHour';
 import { RenameApp } from '@/components/RenameApp';
 import { Card, CardTitle } from '@/components/Card';
 import { CountUp } from '@/components/CountUp';
-import { AppDailyChart, HourlyChart } from '@/components/Charts';
+import { HourlyChart } from '@/components/Charts';
+import { AppDailyCard } from '@/components/RangedCharts';
+import { BackKey } from '@/components/BackKey';
+import { UnmergeButton } from '@/components/AppMenu';
 import { EmptyState } from '@/components/EmptyState';
-import { parseDays } from '@/lib/scope';
+import { ALL_DAYS } from '@/lib/scope';
 import { formatBytes, formatCount, formatDayShort, formatPercent, splitBytes } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -60,24 +63,20 @@ function Stat({
 const detailFor = cache((key: string, days: number) => getAppDetail(key, { days }));
 
 export async function generateMetadata({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string; key: string }>;
-  searchParams: Promise<{ days?: string }>;
 }): Promise<Metadata> {
   const { device, key } = await params;
   if (!databaseExists()) return windowsTitle(device);
-  const sp = await searchParams;
-  const app = detailFor(decodeURIComponent(key), parseDays(sp.days));
+  const app = detailFor(decodeURIComponent(key), ALL_DAYS);
   return windowsTitle(device, app?.name ?? 'App');
 }
 
 export default async function AppDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ device: string; key: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   if (!databaseExists()) return <EmptyState />;
 
@@ -85,30 +84,21 @@ export default async function AppDetailPage({
   const device = windowsDeviceBySlug(slug);
   if (!device) notFound();
   const base = `/windows/${device.slug}`;
-  const sp = await searchParams;
-  const scope: Scope = { days: parseDays(sp.days) };
+  // Every figure covers all history; Daily usage carries its own range.
+  const scope: Scope = { days: ALL_DAYS };
+
+  // An app the user merged into another lives on that one's page.
+  const into = mergedInto(decodeURIComponent(key));
+  if (into) redirect(`${base}/apps/${encodeURIComponent(into)}`);
 
   const app = detailFor(decodeURIComponent(key), scope.days);
   const colors = getAppColorMap();
   const icons = getAppIconMap(device.slug, getWindowsAppNames().values());
 
-  // An app with no rows in this scope is not a 404 -- the app exists, the
-  // selection is just empty. Say which, rather than showing "not found" for a
-  // date range the user can simply widen. A key that matches nothing at all IS
-  // a 404, and saying "nothing in this range" for it would send the reader
-  // hunting for a range that does not exist.
+  // Over all history, no rows means no such app: a 404, not an empty page.
   if (!app) {
     if (getRowCount() === 0) return <EmptyState />;
-    if (!appExists(decodeURIComponent(key))) notFound();
-    return (
-      <>
-        <div className="page-head">
-          <h1>Nothing in this range</h1>
-          <p>This app moved no data in the selected range.</p>
-        </div>
-        <Link href={`${base}/apps`} className="chip">&larr; All apps</Link>
-      </>
-    );
+    notFound();
   }
 
   // Eligibility is checked here too, not just in the table's link. A pasted or
@@ -120,6 +110,7 @@ export default async function AppDetailPage({
 
   return (
     <>
+      <BackKey href={`${base}/apps`} />
       <div className="page-head">
         <Link href={`${base}/apps`} className="back-link">&larr; All apps</Link>
         <RenameApp
@@ -160,31 +151,13 @@ export default async function AppDetailPage({
           sub={`across ${app.days} ${app.days === 1 ? 'day' : 'days'}`} />
       </div>
 
-      <Card delay={240} hover={false}>
-        <CardTitle
-          sub="Download and upload stacked, on the same shading as the rest of the dashboard"
-          aside={
-            app.peak && (
-              <div className="callout">
-                <div className="callout-head">
-                  <span className="callout-label">Heaviest day</span>
-                  <span className="callout-date">{formatDayShort(app.peak.date)}</span>
-                </div>
-                <div className="callout-value">{formatBytes(app.peak.total)}</div>
-              </div>
-            )
-          }
-        >
-          Daily usage
-        </CardTitle>
-        <AppDailyChart data={app.daily} />
-      </Card>
+      <AppDailyCard daily={app.daily} delay={240} />
 
       <div style={{ height: '1.15rem' }} />
 
       <Card delay={300} hover={false}>
         <CardTitle
-          sub="Local time, summed over the selected range"
+          sub="Local time, summed over all history"
           aside={<BusiestHour data={app.hourly} />}
         >
           Hour of day
@@ -238,7 +211,7 @@ export default async function AppDetailPage({
               too big.
             */}
             <CardTitle
-              sub={`${app.members.length} separate programs are counted together as ${app.name}. Their totals are added; nothing is double-counted.`}
+              sub={`${app.members.length} separate programs are counted together as ${app.name}. Their totals are added; nothing is double-counted.${app.members.some((m) => m.mergedFrom) ? ' Those you merged can be separated again.' : ''}`}
             >
               Merged apps
             </CardTitle>
@@ -250,6 +223,7 @@ export default async function AppDetailPage({
                     <th className="num">Active days</th>
                     <th className="num">Total</th>
                     <th style={{ width: '32%' }}>Share of {app.name}</th>
+                    {app.members.some((m) => m.mergedFrom) && <th className="undo-col" aria-label="Separate" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -259,6 +233,9 @@ export default async function AppDetailPage({
                         <span className="app-cell">
                           <AppIcon name={m.name} color={colorOf(colors, app.name)} icons={icons} />
                           <span className="app-name" title={m.name}>{m.name}</span>
+                          {m.mergedFrom && (
+                            <span className="badge app-kind" title={`Merged by you, from ${m.mergedFrom.name}`}>merged</span>
+                          )}
                         </span>
                       </td>
                       <td className="num" style={{ color: 'var(--text-faint)' }}>{m.days}</td>
@@ -274,6 +251,13 @@ export default async function AppDetailPage({
                           />
                         </div>
                       </td>
+                      {app.members.some((x) => x.mergedFrom) && (
+                        <td className="num undo-col">
+                          {m.mergedFrom && (
+                            <UnmergeButton platform="windows" device={device.slug} appKey={m.mergedFrom.key} name={m.mergedFrom.name} />
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

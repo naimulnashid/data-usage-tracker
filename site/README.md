@@ -1,55 +1,56 @@
 # Project site
 
-A one-page site that shows what this project is and does, for people who
-find the repository: the problem it solves, how the collectors work, every
-chart it draws, and every feature.
+The one-page site for people who find the repository: the problem it solves,
+what it does, every chart the dashboard draws (live), how it works, how to
+install it, and a short FAQ. Built on the **Onyx** design system, on the same
+structure as the AI Usage site.
 
-**The screenshot tour is hidden** (2026-10-15, pending the owner's review):
-its section, nav link and script are all kept, and the comment above
-`<section id="tour">` in `index.html` says how to bring it back.
+| | |
+|---|---|
+| Built with | [Astro](https://astro.build) 7, static output; Geist from Fontsource, self-hosted |
+| Design | Onyx tokens in `src/styles/onyx.css`, copied unchanged from the Onyx repo: refresh it there, never edit it here |
+| Light theme | **A grey page (`#e6e6ea`) behind white cards**, the owner's choice for the AI Usage site (2026-10-28) applied here too: Onyx's light canvas reads as nearly white. Overridden in `src/styles/global.css`, not in `onyx.css` |
+| Accent | **The dashboard's own: Tech Blue for the laptop, Android Green for a phone** (`src/lib/accent.ts` in the dashboard), not Onyx's. `data-device` on `<html>` or a section picks the family, as on the dashboard's shell |
+| Icons | Lucide 1.61.0 shapes inlined in `src/components/Icon.astro`; no icon library ships |
+| Charts | `src/scripts/charts.js`: drawn from a fixed seed, so the same on every load and nobody's usage; they follow the dashboard's (`src/components/Charts.tsx`, `WhereItWent.tsx`). `src/styles/charts.css` maps the dashboard's chart tokens onto Onyx's |
+| Screenshots | Imported from `docs/screenshots/` (`npm run demo:shots` in the repo root); Astro resizes them, crops the first screen of each, and serves the dark or light one by theme |
 
-Plain HTML, CSS and one script, with no framework and no dependencies. The
-charts are drawn in the browser from a fixed random seed, so they are the
-same on every load and are nobody's usage. The dashboard screenshots come
-from `docs/screenshots/`, which `npm run demo:shots` regenerates in both
-themes from one history; the (hidden) tour shows the set matching the
-page's theme, and
-the build copies them in rather than keeping a second set here. It copies
-`docs/social-preview.png` (the repository's social card) in the same way, as
-the link preview image; the preview tags use absolute URLs to the deployed
-address, since link unfurlers need them.
+`?device=android` opens the chart gallery on the phone.
 
-**Phones get the desktop layout, zoomed to fit**, as the dashboard does: the
-viewport tag is `width=1024` with no initial scale, so a phone lays the page
-out 1024px wide and scales it down. Desktop browsers ignore the tag. The
-narrow-width CSS still serves a narrow desktop window.
+**Phones get the desktop layout, zoomed out to fit**: a `width=1280` viewport,
+as on the AI Usage site. The narrow styles stay for a narrow desktop window.
 
 ## Build and preview
 
-```bash
-node site/build.mjs
-```
-
-writes the site to `site/dist/` (git-ignored). Serve that folder with any
-static server to look at it, for example:
+Needs Node.js 22.12 or newer (Astro's `engines`). From `site\`:
 
 ```bash
-python -m http.server 7951 --bind 127.0.0.1 --directory site/dist
+npm ci
+npm run build
+npm run preview
 ```
+
+`npm run build` writes `dist/` (git-ignored) and then runs
+`scripts/check-csp.mjs`, which fails if the page holds an inline script the
+Content-Security-Policy does not allow (below). `npm run preview` serves
+`dist/` at http://localhost:4321.
 
 ## Deploying on Vercel
 
-Import the repository and set **Root Directory** to `site`. Everything else
-comes from `site/vercel.json`: no framework, no install step, the build
-command and output folder, and the security headers. Vercel's build can read
-files outside the root directory, which is how the screenshots get in.
+Root Directory `site`; everything else is in `vercel.json`: the Astro build,
+the security headers and when to build at all.
 
-**A push builds only when the site could have changed**: something under
-`site/`, `docs/screenshots/` or `docs/social-preview.png` differs from the
-last successful deployment (`ignoreCommand`; exit 0 skips, anything else
-builds). With no previous
-deployment, or one whose commit is not in Vercel's clone, the command fails
-and the build runs, so it errs towards building. Any other folder the site
-starts reading from must be added to that path list.
-
-`?device=android` opens the chart gallery on the phone instead of the laptop.
+- **CSP.** Scripts load only from the site itself, plus the one inline theme
+  snippet in `src/layouts/Base.astro` (it must run before first paint), allowed
+  by its hash. Edit that snippet and the build prints the new hash to put in
+  `vercel.json`. Astro is told never to inline anything else
+  (`assetsInlineLimit: 0`). Styles allow `'unsafe-inline'`: the charts colour
+  their shapes through style attributes.
+- **A push builds only when the site could have changed**: something under
+  `site/`, `docs/screenshots/`, `docs/social-preview.png` or the root
+  `package.json` (the footer's version) differs from the last successful
+  deployment (`ignoreCommand`; exit 0 skips). With no previous deployment it
+  builds. Any other folder the site starts reading from must be added to that
+  list.
+- Link previews use the repository's social card (`docs/social-preview.png`),
+  with absolute URLs from `VERCEL_PROJECT_PRODUCTION_URL`.

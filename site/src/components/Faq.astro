@@ -1,0 +1,131 @@
+---
+import { LINKS } from '../lib/site';
+
+const faqs = [
+  {
+    q: "Why doesn't the total match Windows' page?",
+    a: "Windows shows one network at a time; the dashboard counts them all. Compare Windows' figure with that network's row under Where it went.",
+  },
+  {
+    q: 'How accurate are the numbers?',
+    a: "They are Windows' own: checked app by app against its Data usage page, several within a fraction of a percent.",
+  },
+  {
+    q: 'What happens after a Windows reset?',
+    a: `The database is on another drive, so it survives. <code>npm run restore</code> and two setup scripts bring the rest back. <a href="${LINKS.recovery}">The steps</a>.`,
+  },
+  {
+    q: 'Does anything leave my PC?',
+    a: 'No. Phones post to the dashboard on your network, or optionally through a cloud inbox that cannot read what it carries.',
+  },
+  {
+    q: 'Can I add a phone and the PC together?',
+    a: "Never add the two: a laptop tethered to a phone has counted those bytes already. Each device has its own pages.",
+  },
+  {
+    q: 'Is it free?',
+    a: `Yes, under the <a href="${LINKS.license}">MIT license</a>. Bugs and questions go to the <a href="${LINKS.issues}">issue tracker</a>.`,
+  },
+];
+---
+
+<section class="section" id="faq" aria-labelledby="faq-title">
+  <div class="container faq">
+    <div class="section-head">
+      <p class="eyebrow">FAQ</p>
+      <h2 id="faq-title">Questions, answered.</h2>
+    </div>
+    <div class="list">
+      {
+        faqs.map((item) => (
+          <details>
+            <summary>{item.q}</summary>
+            <p class="muted" set:html={item.a} />
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    display: grid;
+    gap: 8px;
+  }
+
+  .list {
+    border-top: 1px solid var(--border);
+  }
+
+  /* Wide screens: the heading on the left, the questions beside it. */
+  @media (min-width: 980px) {
+    .faq {
+      grid-template-columns: 1fr 2fr;
+      gap: 64px;
+      align-items: start;
+    }
+  }
+
+  details {
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--dur) var(--ease);
+  }
+
+  /* Hover: the row lifts onto a surface and the question takes the accent. */
+  details:hover,
+  details[open] {
+    background: var(--surface);
+  }
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 14px;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    transition: color var(--dur) var(--ease);
+  }
+
+  summary:hover {
+    color: var(--accent-bright);
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary::after {
+    content: '+';
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: var(--accent-bright);
+    font-size: 1.4rem;
+    line-height: 1;
+    transition:
+      background-color var(--dur) var(--ease),
+      box-shadow var(--dur) var(--ease);
+  }
+
+  summary:hover::after {
+    background: var(--accent-dim);
+    box-shadow: 0 0 16px var(--accent-glow);
+  }
+
+  details[open] summary::after {
+    content: '−';
+  }
+
+  details p {
+    padding: 0 14px 20px;
+  }
+</style>

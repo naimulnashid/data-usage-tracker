@@ -1,6 +1,6 @@
 import {
   SkPageHead, SkStats, SkStat, SkCard, SkCallout, SkPlot, SkHourly, SkDataTable,
-  SkSsidBlock, SkeletonGap,
+  SkRangeMenu, SkeletonGap,
 } from '@/components/Skeleton';
 
 /**
@@ -10,11 +10,8 @@ import {
  *
  * By network and Package are reproduced because in practice every app has
  * both: a uid that moved bytes moved them on some network, and it has at least
- * one package unless it is one of the unmapped system uids. By network is the
- * one that differs by phone: under its Wi-Fi / mobile table it lists the app's
- * Wi-Fi networks from the USB capture, 13 typically on the phone `/android`
- * opens and 2 on a phone with a short capture. It starts ~1,400px down, below the first
- * viewport at either width.
+ * one package unless it is one of the unmapped system uids. (By network's
+ * list of Wi-Fi networks from the USB capture is hidden since 3.7.0.)
  */
 export default function Loading() {
   return (
@@ -28,8 +25,8 @@ export default function Loading() {
       </SkStats>
       <SkCard
         title="Daily usage"
-        sub="Download and upload stacked, on the same shading as the rest of the dashboard"
-        aside={<SkCallout label="Heaviest day" date="Aug 30" value="9.84 GB" />}
+        sub="Heaviest day Aug 30 · 9.84 GB"
+        aside={<SkRangeMenu />}
       >
         <SkPlot height={300} />
       </SkCard>
@@ -44,7 +41,6 @@ export default function Loading() {
       <SkeletonGap />
       <SkCard title="By network" sub="Wi-Fi against mobile data for this app alone.">
         <SkDataTable head={['Network', 'Total', 'Share']} rows={2} cells={['Mobile data', '131 GB', 'bar']} />
-        <SkSsidBlock head="Wi-Fi networks" rows={13} />
       </SkCard>
       <SkeletonGap />
       <SkCard title="Package" sub="The package behind this uid, as the phone reports it.">

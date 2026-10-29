@@ -1,0 +1,200 @@
+---
+import Icon, { type IconName } from './Icon.astro';
+
+const devices: { key: string; icon: IconName; name: string; reads: string; items: string[] }[] = [
+  {
+    key: 'windows',
+    icon: 'laptop',
+    name: 'A Windows PC',
+    reads: 'Every hour, from SRUM: the database behind Windows\' own Data usage page.',
+    items: ['Per app, per network, per hour', 'Wi-Fi network names learned as it runs', 'Windows 10 or 11'],
+  },
+  {
+    key: 'android',
+    icon: 'smartphone',
+    name: 'Android phones',
+    reads: 'Every 6 hours on unmetered networks, from a small reporter app with no dependencies.',
+    items: ['Per app, Wi-Fi and mobile data', 'Any number of phones, each its own page', 'Android 8.0 or newer'],
+  },
+];
+---
+
+<section class="section" id="devices" aria-labelledby="devices-title">
+  <div class="container">
+    <div class="section-head">
+      <p class="eyebrow"><Icon name="history" /> The problem</p>
+      <h2 id="devices-title">Both already count it. Neither keeps it.</h2>
+      <p class="lead">Windows forgets after a month or two and loses it all in a reset; Android keeps about 90 days. This keeps everything since it was installed.</p>
+    </div>
+
+    <div class="devices">
+      {
+        devices.map((d) => (
+          <article class="card device" data-device={d.key}>
+            <span class="icon-tile"><Icon name={d.icon} /></span>
+            <h3>{d.name}</h3>
+            <p class="muted">{d.reads}</p>
+            <ul>{d.items.map((item) => <li><Icon name="check" />{item}</li>)}</ul>
+          </article>
+        ))
+      }
+    </div>
+
+    <div class="glow retention" role="figure" aria-label="How much history each source keeps">
+      <div class="ret-head">
+        <span class="ret-title">How much history survives</span>
+        <span class="ret-scale"><span>12 months ago</span><span>today</span></span>
+      </div>
+      <div class="ret-row">
+        <div class="ret-label">Windows Settings<small>rolling 30 to 60 days</small></div>
+        <div class="ret-track"><span class="ret-fill ret-win" style="left:84%;width:16%"></span></div>
+      </div>
+      <div class="ret-row">
+        <div class="ret-label">After a Windows reset<small>the database is on C:</small></div>
+        <div class="ret-track"><span class="ret-empty">nothing</span><span class="ret-reset" style="left:96%"></span></div>
+      </div>
+      <div class="ret-row">
+        <div class="ret-label">Android<small>about 90 days</small></div>
+        <div class="ret-track"><span class="ret-fill ret-and" style="left:75%;width:25%"></span></div>
+      </div>
+      <div class="ret-row">
+        <div class="ret-label strong">Data Usage Tracker<small>everything since it was installed</small></div>
+        <div class="ret-track"><span class="ret-fill ret-us" style="left:0;width:100%"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .devices {
+    display: grid;
+    gap: var(--gap-grid);
+  }
+
+  @media (min-width: 860px) {
+    .devices {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .device {
+    border-top: 3px solid var(--accent);
+  }
+
+  .device h3 {
+    margin-bottom: 6px;
+  }
+
+  .device ul {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-dim);
+    font-size: 0.9375rem;
+  }
+
+  .device li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .device li :global(svg) {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--accent-bright);
+  }
+
+  .retention {
+    margin-top: var(--gap-grid);
+    padding: var(--pad-card);
+  }
+
+  .ret-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .ret-title {
+    font-weight: 600;
+  }
+
+  .ret-scale {
+    display: flex;
+    gap: 24px;
+    color: var(--text-faint);
+    font-size: 0.8125rem;
+  }
+
+  .ret-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 230px) 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 9px 0;
+  }
+
+  .ret-label {
+    font-size: 0.9375rem;
+  }
+
+  .ret-label small {
+    display: block;
+    color: var(--text-faint);
+    font-size: 0.8125rem;
+  }
+
+  .ret-label.strong {
+    font-weight: 600;
+  }
+
+  .ret-track {
+    position: relative;
+    height: 12px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-inset);
+    border: 1px solid var(--border);
+  }
+
+  .ret-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: var(--radius-pill);
+  }
+
+  .ret-win {
+    background: color-mix(in srgb, var(--laptop) 55%, transparent);
+  }
+
+  .ret-and {
+    background: color-mix(in srgb, var(--phone) 55%, transparent);
+  }
+
+  .ret-us {
+    background: linear-gradient(90deg, var(--laptop), var(--laptop-bright));
+  }
+
+  .ret-empty {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-faint);
+    font-size: 0.75rem;
+  }
+
+  .ret-reset {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--danger);
+  }
+</style>

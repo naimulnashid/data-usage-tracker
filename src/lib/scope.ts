@@ -1,8 +1,16 @@
 /**
- * Shared scope constants.
+ * Shared range constants.
  *
  * Lives apart from `queries.ts` because that module is `server-only` and the
- * scope bar is a client component -- both need these numbers.
+ * range menus are client components -- both need these numbers.
+ *
+ * **Pages are not scoped any more** (since 3.7.0). The top bar's 7d / 30d /
+ * 90d / All chips scoped every figure on every page; the user asked for them
+ * to go, so every page reads all history and only the two daily charts --
+ * Daily by app, and an app's Daily usage -- carry a range of their own, in a
+ * menu at their top right. An old link carrying `?days=` shows everything
+ * rather than a filter with no visible control, exactly as `?profile=` did
+ * when the network selector went.
  */
 
 /**
@@ -15,40 +23,28 @@
  */
 export const ALL_DAYS = 36500;
 
-/** Ranges offered in the scope bar, shortest first. */
+/** Ranges offered in a chart's menu, shortest first. */
 export const RANGES = [7, 30, 90, ALL_DAYS] as const;
 
-/** Opening view. All history, so the dashboard leads with everything it holds. */
-export const DEFAULT_DAYS = ALL_DAYS;
+export type ChartRange = (typeof RANGES)[number];
+
+/** What a chart's menu opens on. A month: readable bars, recent enough to matter. */
+export const DEFAULT_CHART_DAYS: ChartRange = 30;
 
 export function rangeLabel(days: number): string {
   return days === ALL_DAYS ? 'All' : `${days}d`;
 }
 
-/**
- * Parse `?days=` into a whole number of days from 1 to ALL_DAYS, falling back
- * to the default for anything else.
- *
- * Bounded, because the value goes straight into date arithmetic: it used to
- * accept any positive number, and `?days=1e9` moved a Date past its range, so
- * `toISOString()` threw `RangeError: Invalid time value` and the page died.
- * Not restricted to the four offered ranges, because an old bookmark such as
- * `?days=365` is a perfectly good question to keep answering.
- */
-export function parseDays(raw: string | undefined): number {
-  const n = Number(raw);
-  return Number.isInteger(n) && n >= 1 && n <= ALL_DAYS ? n : DEFAULT_DAYS;
+/** Spoken label, for the menu's options. */
+export function rangeName(days: number): string {
+  return days === ALL_DAYS ? 'All history' : `Last ${days} days`;
 }
 
 /**
- * `?days=` as a query suffix ("" when unset), for a link between two views of
- * one device that must not reset the reader's range.
- *
- * `?profile=` used to ride along too. The network selector it came from was
- * removed on 2026-09-30 -- "Where it went" on the overview answers the
- * per-network question now -- and pages no longer read it, so an old link
- * carrying it shows everything rather than a filter with no visible control.
+ * The tail of a day-by-day series that a range covers: its last `days`
+ * entries, counted back from the newest day, as the queries anchor ranges.
+ * The series is one entry per day (lib/days.ts), so a count is a date span.
  */
-export function scopeQuery(sp: { days?: string }): string {
-  return sp.days ? `?${new URLSearchParams({ days: sp.days })}` : '';
+export function lastDays<T>(series: T[], days: number): T[] {
+  return days >= series.length ? series : series.slice(series.length - days);
 }

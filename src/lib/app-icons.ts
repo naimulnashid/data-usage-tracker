@@ -188,8 +188,15 @@ export const ICON_ALIASES: Record<string, string> = {
  *
  * So measure the MARK, not the file: a sparse glyph is judged by its mean, a
  * tile by whether it carries a light glyph of its own.
+ *
+ * **Cursor and OpenCode came off the list on 2026-10-29**, by that rule: their
+ * files are tiles now. Cursor's is a near-black square carrying the cube in
+ * light grey, OpenCode's a #F1ECEC frame around its dark mark, so each brings
+ * its own ground and the plate only boxed them in white. ASUS stays: its file
+ * is still the bare black wordmark, every fill `rgb(0%,0%,0%)`, and on black
+ * it would vanish.
  */
-export const PLATE_STEMS = new Set(['asus', 'opencode', 'cursor']);
+export const PLATE_STEMS = new Set(['asus']);
 
 export interface AppIconSpec {
   src: string;

@@ -1,6 +1,6 @@
 import {
   SkPageHead, SkStats, SkStat, SkCard, SkCallout, SkPlot, SkLegend, SkHourly,
-  SkHeatmap, SkBar, SkHalves, SkSsidBlock, SkeletonGap,
+  SkHeatmap, SkBar, SkHalves, SkKinds, SkDonut, SkRangeMenu, SkeletonGap,
 } from '@/components/Skeleton';
 import { WindowsNetworkNote } from '@/components/Notes';
 import { splitAppName, windowsDevice } from '@/lib/queries';
@@ -47,7 +47,7 @@ export default function Loading() {
         <SkHeatmap />
       </SkCard>
       <SkeletonGap />
-      <SkCard title="Daily by app" sub="Top 8 apps stacked; everything else grouped as Other">
+      <SkCard title="Daily by app" sub="Top 8 apps stacked; everything else grouped as Other" aside={<SkRangeMenu />}>
         <SkPlot height={380} />
         <SkLegend
           logo
@@ -57,7 +57,7 @@ export default function Loading() {
       <SkeletonGap />
       <SkCard
         title="Hour of day"
-        sub="Local time, summed over the selected range"
+        sub="Local time, summed over all history"
         aside={<SkCallout label="Busiest hour" date="21:00" value="56.0 GB" />}
       >
         <SkHourly />
@@ -81,15 +81,14 @@ export default function Loading() {
         </>
       )}
       <SkeletonGap />
-      <SkCard title="Where it went" sub="Wi-Fi against wired, and which network, over the selected range">
-        <SkBar />
-        <SkHalves
-          halves={[
+      <SkCard title="Where it went">
+        <SkKinds
+          kinds={[
             { label: 'Wi-Fi', value: '681 GB', sub: '100.0% of all traffic' },
             { label: 'Wired', value: '0 B', sub: '0.0% of all traffic' },
           ]}
         />
-        <SkSsidBlock head="Networks" note="7 networks" rows={7} footnote={<WindowsNetworkNote />} />
+        <SkDonut rows={7} footnote={<WindowsNetworkNote />} />
       </SkCard>
     </>
   );

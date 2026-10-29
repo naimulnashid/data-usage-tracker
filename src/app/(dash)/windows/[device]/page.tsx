@@ -2,21 +2,22 @@ import type { Metadata } from 'next';
 import { windowsTitle } from '@/lib/page-title';
 import { notFound } from 'next/navigation';
 import {
-  getOverview, getSync, getHeatmap, getTimeline, getAppColorMap, getRowCount,
+  getOverview, getSync, getHeatmap, getTimeline, getAppColorMap,
   getNetworkBreakdown, getWindowsAppNames, windowsDeviceBySlug, databaseExists,
-  type LinkKind, type Scope, type Totals,
+  type Scope, type Totals,
 } from '@/lib/queries';
 import { getAppIconMap } from '@/lib/app-icons-server';
 import { Card, CardTitle } from '@/components/Card';
 import { WindowsNetworkNote } from '@/components/Notes';
 import { CountUp } from '@/components/CountUp';
-import { DailyTrendChart, StackedTimelineChart, HourlyChart } from '@/components/Charts';
-import { ChartLegend } from '@/components/ChartLegend';
+import { DailyTrendChart, HourlyChart } from '@/components/Charts';
+import { DailyByAppCard } from '@/components/RangedCharts';
+import { LinkKinds, NetworkDonut } from '@/components/WhereItWent';
 import { SplitBar } from '@/components/SplitBar';
 import { BusiestHour } from '@/components/BusiestHour';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
-import { EmptyState, NoDataInScope } from '@/components/EmptyState';
-import { parseDays, scopeQuery } from '@/lib/scope';
+import { EmptyState } from '@/components/EmptyState';
+import { ALL_DAYS } from '@/lib/scope';
 import { daySpanLabel } from '@/lib/days';
 import {
   formatBytes, formatDayLong, formatDayShort, formatPercent, formatRelative, splitBytes,
@@ -62,13 +63,6 @@ function StatCard({
   );
 }
 
-const LINK_LABEL: Record<LinkKind, string> = {
-  wifi: 'Wi-Fi',
-  wired: 'Wired',
-  mobile: 'Mobile broadband',
-  other: 'Other',
-};
-
 export async function generateMetadata({
   params,
 }: {
@@ -79,10 +73,9 @@ export async function generateMetadata({
 }
 
 export default async function OverviewPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   if (!databaseExists()) return <EmptyState />;
 
@@ -93,23 +86,18 @@ export default async function OverviewPage({
   if (!device) notFound();
   const base = `/windows/${device.slug}`;
 
-  const sp = await searchParams;
-  const scope: Scope = { days: parseDays(sp.days) };
+  // Every figure covers all history; the daily charts carry their own range.
+  const scope: Scope = { days: ALL_DAYS };
 
   const data = getOverview(scope);
   const heatmap = getHeatmap();
-  const timeline = getTimeline(scope);
+  const timeline = getTimeline();
   const networks = getNetworkBreakdown(scope);
   const sync = getSync(1);
   const colors = getAppColorMap();
   const icons = getAppIconMap(device.slug, getWindowsAppNames().values());
 
-  if (!data.latestDate) {
-    // Distinguish an empty database from an empty selection.
-    return getRowCount() === 0
-      ? <EmptyState />
-      : <NoDataInScope home={base} />;
-  }
+  if (!data.latestDate) return <EmptyState />;
 
   const todayIso = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local
   const isCurrent = data.latestDate === todayIso;
@@ -134,8 +122,9 @@ export default async function OverviewPage({
 
   // Wi-Fi and wired always; mobile broadband and "other" only when present,
   // since a laptop without a WWAN modem would otherwise carry a permanent 0 B.
-  const kinds = networks.byKind.filter((k) => k.kind === 'wifi' || k.kind === 'wired' || k.total > 0);
-  const pctOf = (b: number) => (networks.total ? (b / networks.total) * 100 : 0);
+  const kinds = networks.byKind
+    .filter((k) => k.kind === 'wifi' || k.kind === 'wired' || k.total > 0)
+    .map((k) => (k.kind === 'mobile' ? { ...k, label: 'Mobile broadband' } : k));
 
   return (
     <>
@@ -192,25 +181,19 @@ export default async function OverviewPage({
         </CardTitle>
         <ActivityHeatmap
           daily={heatmap}
-          expandHref={`${base}/activity${scopeQuery(sp)}`}
+          expandHref={`${base}/activity`}
         />
       </Card>
 
       <div style={{ height: '1.15rem' }} />
 
-      <Card delay={360} hover={false}>
-        <CardTitle sub={`Top ${timeline.series.filter((s) => s !== 'Other').length} apps stacked; everything else grouped as Other`}>
-          Daily by app
-        </CardTitle>
-        <StackedTimelineChart data={timeline.points} series={timeline.series} colors={colors} />
-        <ChartLegend series={timeline.series} colors={colors} icons={icons} />
-      </Card>
+      <DailyByAppCard ranges={timeline.ranges} colors={colors} icons={icons} delay={360} />
 
       <div style={{ height: '1.15rem' }} />
 
       <Card delay={420} hover={false}>
         <CardTitle
-          sub="Local time, summed over the selected range"
+          sub="Local time, summed over all history"
           aside={<BusiestHour data={timeline.hourly} />}
         >
           Hour of day
@@ -248,65 +231,12 @@ export default async function OverviewPage({
         rows add up to the headline figures.
       */}
       <Card delay={540} hover={false}>
-        <CardTitle sub="Wi-Fi against wired, and which network, over the selected range">
-          Where it went
-        </CardTitle>
+        <CardTitle>Where it went</CardTitle>
         <div className="net-split">
-          <div className="net-bar">
-            {kinds.map((k) => (
-              <div
-                key={k.kind}
-                className={`net-bar-fill net-bar-fill--${k.kind}`}
-                style={{ width: `${pctOf(k.total)}%` }}
-                title={`${LINK_LABEL[k.kind]} — ${formatBytes(k.total)}`}
-              />
-            ))}
-          </div>
-          <div className={`grid grid--${Math.min(kinds.length, 4)}`} style={{ marginTop: '1.4rem' }}>
-            {kinds.map((k) => (
-              <div key={k.kind}>
-                <div className="legend-item"><span className={`legend-swatch net-swatch--${k.kind}`} />{LINK_LABEL[k.kind]}</div>
-                <div className={`stat-value net-value--${k.kind}`}>{formatBytes(k.total)}</div>
-                <div className="stat-sub">{formatPercent(pctOf(k.total))} of all traffic</div>
-              </div>
-            ))}
-          </div>
-
+          <LinkKinds kinds={kinds} total={networks.total} />
           {networks.networks.length > 0 && (
             <div className="ssid-block">
-              <div className="ssid-head">
-                <span>Networks</span>
-                <span className="ssid-note">
-                  {networks.networks.length} {networks.networks.length === 1 ? 'network' : 'networks'}
-                </span>
-              </div>
-              <table className="ssid-table">
-                <tbody>
-                  {networks.networks.map((n) => (
-                    <tr key={n.id}>
-                      <td
-                        className={`ssid-name${n.named ? '' : ' ssid-name--dim'}`}
-                        title={n.aliases.length ? `${n.label} - also seen as ${n.aliases.join(', ')}` : n.label}
-                      >
-                        {n.named || n.id === '0' ? n.label : `${n.label}, unnamed`}
-                        {n.aliases.length > 0 && <span className="ssid-note"> +{n.aliases.length}</span>}
-                      </td>
-                      <td className="num">{formatBytes(n.total)}</td>
-                      <td style={{ width: '45%' }}>
-                        <div className="bar-track">
-                          <div
-                            className="bar-fill"
-                            style={{
-                              width: `${pctOf(n.total)}%`,
-                              background: n.named ? 'var(--accent)' : 'var(--text-faint)',
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <NetworkDonut networks={networks.networks} total={networks.total} />
               <WindowsNetworkNote />
             </div>
           )}

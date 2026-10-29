@@ -6,8 +6,11 @@ import type { AndroidApp } from '@/lib/android-queries';
 import type { AppIconMap } from '@/lib/app-icons';
 import { colorOf, rawColorOf, type AppColorMap } from '@/lib/app-colors';
 import { AppIcon } from './AppIcon';
+import { AppMenu } from './AppMenu';
+import { AppCard, HiddenToggle, ViewToggle, useAppsView } from './AppsViews';
+import { Card, CardTitle } from './Card';
 import { RenameApp } from './RenameApp';
-import { formatBytes, formatPercent } from '@/lib/format';
+import { formatBytes } from '@/lib/format';
 
 /*
   Eligibility is duplicated from `earnsAndroidDetailPage` rather than imported.
@@ -26,129 +29,162 @@ function earnsDetail(total: number, days: number): boolean {
   return days >= DETAIL_MIN_DAYS && total >= DETAIL_PERSISTENT_MIN_BYTES;
 }
 
+/** Hundreds of packages is not a list anyone reads; 25 covers everything with a shape. */
+const TOP = 25;
+
 /**
- * Per-app usage on the phone.
+ * Per-app usage on the phone, as a table or a grid, like the laptop's.
  *
- * Simpler than the Windows table on purpose: there is no detail page to link
- * to yet, and the phone's own labels mean there is no "kind" badge to explain
- * where a name came from. What it does carry that the Windows table does not is
- * the two facts a uid cannot express on its own -- that several packages share
- * it, and that it belongs to a cloned profile.
+ * What it carries that the Windows list does not is the two facts a uid
+ * cannot express on its own -- that several packages share it, and that it
+ * belongs to a cloned profile. The Share column went in 3.7.0 with the
+ * laptop's.
  */
 export function AndroidAppTable({
-  apps, icons, colors, custom = [], search = '', base, device,
+  apps, icons, colors, custom = [], base, device, sub,
 }: {
   apps: AndroidApp[];
   icons: AppIconMap;
   colors: AppColorMap;
   /** uids (as text) whose colour is the user's own. */
   custom?: string[];
-  /** Current ?days, carried into detail links so the range survives. */
-  search?: string;
   /** `/android/<slug>`. Passed in because a device slug cannot be derived here. */
   base: string;
-  /** The phone's slug, for renames. */
+  /** The phone's slug, for renames and the menu. */
   device: string;
+  sub?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const [view, setView] = useAppsView();
 
-  // Hundreds of packages is not a table anyone reads. The long tail here is system
-  // services moving kilobytes; 25 covers everything with a shape.
-  const visible = useMemo(() => (expanded ? apps : apps.slice(0, 25)), [apps, expanded]);
-  const max = Math.max(...apps.map((a) => a.total), 1);
+  const hiddenCount = apps.filter((a) => a.hidden).length;
+  const listed = useMemo(() => (showHidden ? apps : apps.filter((a) => !a.hidden)), [apps, showHidden]);
+  const visible = useMemo(() => (expanded ? listed : listed.slice(0, TOP)), [listed, expanded]);
+  const max = Math.max(...listed.map((a) => a.total), 1);
+  const candidates = useMemo(() => apps.map((a) => ({ key: String(a.uid), name: a.name })), [apps]);
+
+  const hrefOf = (a: AndroidApp) => (earnsDetail(a.total, a.days) ? `${base}/apps/${a.uid}` : undefined);
+  // Only apps with a shape worth looking at are links. A uid that moved a few
+  // kilobytes once would be a page of one bar, and a dead link is worse than
+  // no link.
+  const nameOf = (a: AndroidApp) => {
+    const href = hrefOf(a);
+    return href ? (
+      <Link href={href} className="app-name app-link" title={`${a.name} - uid ${a.uid} - open detail`}>{a.name}</Link>
+    ) : (
+      <span className="app-name" title={`${a.name} - uid ${a.uid} - too little activity for a detail page`}>{a.name}</span>
+    );
+  };
+  const renameOf = (a: AndroidApp, children: React.ReactNode) => (
+    <RenameApp
+      variant="row" platform="android" device={device}
+      appKey={String(a.uid)} name={a.name} baseName={a.baseName}
+      color={rawColorOf(colors, a.name)} customColor={custom.includes(String(a.uid))}
+    >
+      {children}
+    </RenameApp>
+  );
+  const menuOf = (a: AndroidApp) => (
+    <AppMenu platform="android" device={device} appKey={String(a.uid)} name={a.name} hidden={a.hidden} candidates={candidates} />
+  );
+  const badgesOf = (a: AndroidApp) => (
+    <>
+      {a.packages > 1 && (
+        <span className="badge app-kind" title={`${a.packages} packages share uid ${a.uid}`}>+{a.packages - 1}</span>
+      )}
+      {a.profile > 0 && <span className="badge app-kind">clone</span>}
+      {a.special && <span className="badge app-kind">system</span>}
+      {a.hidden && <span className="badge app-kind">hidden</span>}
+    </>
+  );
+  const hasBadges = (a: AndroidApp) => a.packages > 1 || a.profile > 0 || a.special || a.hidden;
 
   return (
-    <div className="table-wrap">
-      <table className="app-table" id="android-app-table">
-        <thead>
-          <tr>
-            <th>App</th>
-            <th className="num">Down</th>
-            <th className="num">Up</th>
-            <th className="num">Total</th>
-            <th className="num">Days</th>
-            <th style={{ width: '22%' }}>Share</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((a, i) => (
-            <tr key={a.uid} className="animate-in" style={{ animationDelay: `${Math.min(i * 18, 360)}ms` }}>
-              <td>
-                <span className="app-cell">
-                  <AppIcon name={a.name} color={colorOf(colors, a.name)} icons={icons} />
-                  {/* Only apps with a shape worth looking at are links. A uid
-                      that moved a few kilobytes once would be a page of one
-                      bar, and a dead link is worse than no link. */}
-                  <RenameApp
-                    variant="row" platform="android" device={device}
-                    appKey={String(a.uid)} name={a.name} baseName={a.baseName}
-                    color={rawColorOf(colors, a.name)} customColor={custom.includes(String(a.uid))}
-                  >
-                    {earnsDetail(a.total, a.days) ? (
-                      <Link
-                        href={`${base}/apps/${a.uid}${search}`}
-                        className="app-name app-link"
-                        title={`${a.name} - uid ${a.uid} - open detail`}
-                      >
-                        {a.name}
-                      </Link>
-                    ) : (
-                      <span className="app-name" title={`${a.name} - uid ${a.uid} - too little activity for a detail page`}>
-                        {a.name}
-                      </span>
-                    )}
-                  </RenameApp>
-                  {a.packages > 1 && (
-                    <span className="badge app-kind" title={`${a.packages} packages share uid ${a.uid}`}>
-                      +{a.packages - 1}
-                    </span>
-                  )}
-                  {a.profile > 0 && <span className="badge app-kind">clone</span>}
-                  {a.special && <span className="badge app-kind">system</span>}
-                </span>
-              </td>
-              <td className="num">{formatBytes(a.rx)}</td>
-              <td className="num">{formatBytes(a.tx)}</td>
-              <td className="num" style={{ fontWeight: 600 }}>{formatBytes(a.total)}</td>
-              <td className="num" style={{ color: 'var(--text-faint)' }}>{a.days}</td>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-                  <div className="bar-track" style={{ flex: 1, minWidth: 60 }}>
-                    <div
-                      className="bar-fill"
-                      style={{
-                        width: `${(a.total / max) * 100}%`,
-                        background: colorOf(colors, a.name),
-                        animationDelay: `${Math.min(i * 18, 360)}ms`,
-                      }}
-                    />
-                  </div>
-                  <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-small)', minWidth: 52, textAlign: 'right' }}>
-                    {formatPercent(a.share)}
-                  </span>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <Card delay={90} hover={false}>
+      <CardTitle sub={sub} aside={<ViewToggle view={view} onChange={setView} />}>
+        Apps
+      </CardTitle>
 
-      {apps.length > 25 && (
-        <div className="table-more">
-          <button
-            type="button"
-            className="chip"
-            onClick={() => setExpanded(!expanded)}
-            aria-expanded={expanded}
-            aria-controls="android-app-table"
-          >
-            {expanded ? 'Show the top 25' : `Show all ${apps.length} apps`}
-          </button>
-          <span className="table-more-note">
-            {expanded ? '' : `${apps.length - 25} more moved very little.`}
-          </span>
+      {view === 'table' ? (
+        <div className="table-wrap">
+          <table className="app-table" id="android-app-table">
+            <thead>
+              <tr>
+                <th>App</th>
+                <th className="num">Down</th>
+                <th className="num">Up</th>
+                <th className="num">Total</th>
+                <th className="num">Days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((a, i) => (
+                <tr
+                  key={a.uid}
+                  className={`animate-in${a.hidden ? ' row--hidden' : ''}`}
+                  style={{ animationDelay: `${Math.min(i * 18, 360)}ms` }}
+                >
+                  <td>
+                    <span className="app-cell">
+                      <AppIcon name={a.name} color={colorOf(colors, a.name)} icons={icons} />
+                      {renameOf(a, nameOf(a))}
+                      {menuOf(a)}
+                      {badgesOf(a)}
+                    </span>
+                  </td>
+                  <td className="num">{formatBytes(a.rx)}</td>
+                  <td className="num">{formatBytes(a.tx)}</td>
+                  <td className="num" style={{ fontWeight: 600 }}>{formatBytes(a.total)}</td>
+                  <td className="num" style={{ color: 'var(--text-faint)' }}>{a.days}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="app-grid" id="android-app-table">
+          {visible.map((a, i) => (
+            <AppCard
+              key={a.uid}
+              index={i}
+              name={a.name}
+              href={hrefOf(a)}
+              color={colorOf(colors, a.name)}
+              icons={icons}
+              sent={a.tx}
+              received={a.rx}
+              total={a.total}
+              days={a.days}
+              max={max}
+              hidden={a.hidden}
+              title={renameOf(a, nameOf(a))}
+              actions={menuOf(a)}
+              badges={hasBadges(a) ? badgesOf(a) : undefined}
+            />
+          ))}
         </div>
       )}
-    </div>
+
+      {(listed.length > TOP || hiddenCount > 0) && (
+        <div className="table-more">
+          {listed.length > TOP && (
+            <>
+              <button
+                type="button"
+                className="chip"
+                onClick={() => setExpanded(!expanded)}
+                aria-expanded={expanded}
+                aria-controls="android-app-table"
+              >
+                {expanded ? `Show the top ${TOP}` : `Show all ${listed.length} apps`}
+              </button>
+              {!expanded && <span className="table-more-note">{listed.length - TOP} more moved very little.</span>}
+            </>
+          )}
+          <HiddenToggle count={hiddenCount} shown={showHidden} onToggle={() => setShowHidden(!showHidden)} />
+        </div>
+      )}
+    </Card>
   );
 }

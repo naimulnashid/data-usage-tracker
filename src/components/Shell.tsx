@@ -1,11 +1,9 @@
 'use client';
 
-import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { deviceOf } from '@/lib/accent';
 import { Sidebar, type SidebarDevice } from './Sidebar';
 import { Nav } from './Nav';
-import { ScopeBar } from './ScopeBar';
 import { SyncButton } from './SyncButton';
 import { SignOutButton } from './SignOutButton';
 import { ThemeToggle } from './ThemeToggle';
@@ -54,14 +52,8 @@ export function Shell({
                 could fetch; one that posts to the cloud inbox waits for the
                 next drain, which a sync runs now. */}
             {showSync && <SyncButton />}
-            {/* The range chips apply to both devices.
-
-                ScopeBar reads useSearchParams, which opts any page containing
-                it out of static prerendering. Without this boundary the
-                built-in /_not-found page fails to prerender. */}
-            <Suspense fallback={null}>
-              <ScopeBar />
-            </Suspense>
+            {/* The range chips that sat here scoped every page; they went in
+                3.7.0, and the daily charts carry a range of their own. */}
             <ThemeToggle />
             <SignOutButton />
           </div>

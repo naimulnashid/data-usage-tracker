@@ -1,6 +1,6 @@
 import {
   SkPageHead, SkStats, SkStat, SkCard, SkCallout, SkPlot, SkLegend, SkHourly,
-  SkHeatmap, SkBar, SkHalves, SkSsidBlock, SkMask, SkeletonGap,
+  SkHeatmap, SkBar, SkKinds, SkMask, SkRangeMenu, SkeletonGap,
 } from '@/components/Skeleton';
 
 /**
@@ -9,11 +9,9 @@ import {
  * where the page wraps at every width.
  *
  * **Sized to the phone `/android` opens** -- the one with the most data --
- * because a loading boundary is not given the device. Two sections differ
- * between phones, both far below the first viewport:
+ * because a loading boundary is not given the device. One section differs
+ * between phones, far below the first viewport:
  *
- * - "Where it went" carries a row per Wi-Fi network in the USB capture: 17 on
- *   that phone, 2 on a phone with a short capture.
  * - Tethering appears only on a phone that tethered in the range.
  */
 export default function Loading() {
@@ -41,7 +39,7 @@ export default function Loading() {
         <SkHeatmap />
       </SkCard>
       <SkeletonGap />
-      <SkCard title="Daily by app" sub="Top 8 apps stacked; everything else grouped as Other">
+      <SkCard title="Daily by app" sub="Top 8 apps stacked; everything else grouped as Other" aside={<SkRangeMenu />}>
         <SkPlot height={380} />
         <SkLegend
           logo
@@ -57,27 +55,16 @@ export default function Loading() {
         <SkHourly />
       </SkCard>
       <SkeletonGap />
-      <SkCard title="Where it went" sub="Wi-Fi against mobile data, across the whole recorded history">
+      <SkCard title="Where it went">
         <SkBar />
-        <SkHalves
-          halves={[
-            { label: 'Wi-Fi', value: '83.1 GB', sub: '72.7% of all traffic' },
-            { label: 'Mobile data', value: '31.2 GB', sub: '27.3% of all traffic' },
-          ]}
-        />
-        <SkSsidBlock
-          head="Wi-Fi networks"
-          note="Jul 3 – Sep 27 · collected over USB Sep 27"
-          rows={17}
-          footnote={
-            <p className="ssid-note ssid-note--block">
-              Android does not give apps the network name, so this comes from a USB capture and
-              covers a shorter span than the rest of the page &mdash; the selected range reaches
-              back further. Traffic that crossed a VPN carries no network name and is shown apart
-              rather than spread across the networks above.
-            </p>
-          }
-        />
+        <div style={{ marginTop: '1.4rem' }}>
+          <SkKinds
+            kinds={[
+              { label: 'Wi-Fi', value: '83.1 GB', sub: '72.7% of all traffic' },
+              { label: 'Mobile data', value: '31.2 GB', sub: '27.3% of all traffic' },
+            ]}
+          />
+        </div>
       </SkCard>
       <SkeletonGap />
       <SkCard title="Tethering is counted twice" sub="Excluded from every figure on this page, including the app list.">

@@ -9,7 +9,7 @@ import { Card, CardTitle } from '@/components/Card';
 import { TopAppsChart } from '@/components/Charts';
 import { AndroidAppTable } from '@/components/AndroidAppTable';
 import { AndroidEmpty } from '@/components/AndroidEmpty';
-import { parseDays } from '@/lib/scope';
+import { ALL_DAYS } from '@/lib/scope';
 import { formatBytes, formatPercent } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -31,10 +31,9 @@ export async function generateMetadata({
 }
 
 export default async function AndroidAppsPage({
-  params, searchParams,
+  params,
 }: {
   params: Promise<{ device: string }>;
-  searchParams: Promise<{ days?: string }>;
 }) {
   if (!androidReady()) return <AndroidEmpty />;
 
@@ -42,18 +41,15 @@ export default async function AndroidAppsPage({
   const device = deviceBySlug(slug);
   if (!device) notFound();
 
-  const sp = await searchParams;
-  const days = parseDays(sp.days);
-  const search = sp.days ? `?days=${sp.days}` : '';
-
-  const data = getAndroidOverview(device.deviceId, days);
+  const data = getAndroidOverview(device.deviceId, ALL_DAYS);
   const colors = getAndroidAppColorMap(device.deviceId);
   const icons = getAppIconMap(device.slug, getAndroidAppNames(device.deviceId).values());
 
   const named = data.apps.reduce((a, x) => a + x.total, 0);
-  const top = data.apps.slice(0, 10).map((a) => ({
+  // Hidden apps leave the Top 10 too; their bytes stay in every total.
+  const top = data.apps.filter((a) => !a.hidden).slice(0, 10).map((a) => ({
     name: a.name, total: a.total, sent: a.tx, received: a.rx, share: a.share,
-    href: earnsAndroidDetailPage(a.total, a.days) ? `/android/${slug}/apps/${a.uid}${search}` : undefined,
+    href: earnsAndroidDetailPage(a.total, a.days) ? `/android/${slug}/apps/${a.uid}` : undefined,
   }));
 
   return (
@@ -78,17 +74,12 @@ export default async function AndroidAppsPage({
 
       <div style={{ height: '1.15rem' }} />
 
-      <Card delay={90} hover={false}>
-        <CardTitle
-          sub={
-            'Names and labels come from the phone itself, so there is no guessing. '
-            + 'A uid shared by several packages says so, and Android cannot split those figures.'
-          }
-        >
-          Apps
-        </CardTitle>
-        <AndroidAppTable apps={data.apps} icons={icons} colors={colors} custom={[...getAndroidColorOverrides(device.deviceId).keys()]} search={search} base={`/android/${slug}`} device={slug} />
-      </Card>
+      <AndroidAppTable
+        apps={data.apps} icons={icons} colors={colors}
+        custom={[...getAndroidColorOverrides(device.deviceId).keys()]} base={`/android/${slug}`} device={slug}
+        sub={'Names and labels come from the phone itself, so there is no guessing. '
+          + 'A uid shared by several packages says so, and Android cannot split those figures.'}
+      />
     </>
   );
 }
