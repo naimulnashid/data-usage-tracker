@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { EyeIcon, EyeOffIcon, MergeIcon, MoreIcon, SplitIcon } from './Icons';
+import { EyeIcon, EyeOffIcon, MergeIcon, MoreIcon, PencilIcon, SplitIcon } from './Icons';
+import { RenameDialog } from './RenameApp';
 
 interface Target {
   platform: 'windows' | 'android';
@@ -31,22 +32,27 @@ async function post(t: Target, body: Record<string, string>): Promise<string | n
 }
 
 /**
- * A row's or a card's actions on the By App page: hide it from the page, or
- * merge it into another app. See lib/app-prefs.ts for what each one means --
- * hiding is this page's view only, merging is read everywhere.
+ * A row's or a card's actions on the By App page: rename or recolour it, hide
+ * it from the page, or merge it into another app. See lib/app-prefs.ts for
+ * what hiding and merging mean -- hiding is this page's view only, merging is
+ * read everywhere.
  *
- * Shown on hover or focus beside the rename pencil, like it, and always on a
- * touch screen.
+ * Shown on row or card hover and on focus, and always on a touch screen.
  */
 export function AppMenu({
-  hidden, candidates, ...target
+  hidden, candidates, baseName, color, customColor, ...target
 }: Target & {
   hidden: boolean;
   /** The apps this one may be merged into, as shown. */
   candidates: { key: string; name: string }[];
+  /** For the rename dialog: the name without a rename, and the stored colour. */
+  baseName: string;
+  color: string;
+  customColor: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [merging, setMerging] = useState(false);
   const [into, setInto] = useState('');
   const [busy, setBusy] = useState(false);
@@ -117,7 +123,7 @@ export function AppMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`More for ${target.name}`}
-        title="Hide or merge"
+        title="Rename, hide or merge"
         onClick={() => (open ? close() : show())}
       >
         <MoreIcon size={15} />
@@ -126,6 +132,13 @@ export function AppMenu({
         <span className="app-menu" role="menu" ref={menu} style={{ top: at.top, right: at.right }}>
           {!merging ? (
             <>
+              <button
+                type="button" role="menuitem" className="app-menu-item" disabled={busy}
+                onClick={() => { close(); setRenaming(true); }}
+              >
+                <PencilIcon size={15} />
+                Rename or recolour…
+              </button>
               <button
                 type="button" role="menuitem" className="app-menu-item" disabled={busy}
                 onClick={() => void run({ action: hidden ? 'show' : 'hide' })}
@@ -164,6 +177,9 @@ export function AppMenu({
           {error && <span className="rename-error" role="alert">{error}</span>}
         </span>,
         at.host,
+      )}
+      {renaming && (
+        <RenameDialog {...target} baseName={baseName} color={color} customColor={customColor} onClose={() => setRenaming(false)} />
       )}
     </>
   );

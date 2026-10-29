@@ -4,12 +4,16 @@ import { windowsDeviceBySlug } from './queries';
 import { deviceBySlug } from './android-queries';
 
 /**
- * Page titles: "<page> · <device> · Data Usage Dashboard".
+ * Page titles: "<page> · <device>".
  *
  * Every page used to share the one title from the root layout, so tabs,
  * history and bookmarks were indistinguishable, and a screen reader announced
- * the same thing on every navigation (WCAG 2.4.2). The root layout supplies
- * the "· Data Usage Dashboard" suffix as a template; these supply the rest.
+ * the same thing on every navigation (WCAG 2.4.2).
+ *
+ * There is no "· Data Usage Dashboard" suffix any more. The installed app's
+ * window prefixes the title with the app's name itself, so the suffix made it
+ * "Data Usage Dashboard - By App · <device> · Data Usage Dashboard"; the
+ * favicon names the app in a browser tab.
  *
  * A slug that names no device gets "Not found", matching what the page itself
  * renders for it.

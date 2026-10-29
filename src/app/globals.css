@@ -1156,9 +1156,10 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 
 /* ---------------------------------------------------------------- rename */
 
-/* The pencil beside an app's name. Quiet until wanted: in a table it shows on
-   row hover or keyboard focus only, so a hundred rows are not a column of
-   pencils -- but a touch screen has no hover, so there it always shows. */
+/* The round icon button beside an app's name: the detail page's pencil, and
+   By App's "..." menu. Quiet until wanted: in a table it shows on row hover
+   or keyboard focus only, so a hundred rows are not a column of buttons --
+   but a touch screen has no hover, so there it always shows. */
 .rename-btn {
   flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1176,20 +1177,39 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 @media (hover: none) { .app-table .rename-btn, .app-card .rename-btn { opacity: 1; } }
 .app-title .rename-btn { width: 32px; height: 32px; }
 
-.rename-form {
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: 0.4rem; flex: 1; min-width: 0;
-}
 .rename-input {
-  flex: 1 1 10rem; min-width: 0; max-width: 26rem;
+  width: 100%; min-width: 0;
   font: inherit; font-size: var(--fs-small); color: var(--text);
   background: var(--bg-inset); border: 1px solid var(--input-border);
   border-radius: 8px; padding: 0.35rem 0.6rem;
 }
 .rename-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-.app-title .rename-input { font-size: 1.5rem; font-weight: 650; padding: 0.3rem 0.7rem; }
 .chip--small { padding: 0.28rem 0.7rem; font-size: 0.8125rem; }
-.rename-error { flex-basis: 100%; color: var(--danger); font-size: 0.8125rem; }
+.rename-error { color: var(--danger); font-size: 0.8125rem; }
+
+/* The rename-and-recolour dialog (components/RenameApp.tsx), a native
+   <dialog> opened modal, so the page behind it keeps its shape. */
+.modal {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 0;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  animation: fadeUp 160ms var(--ease) both;
+}
+.modal::backdrop { background: rgba(0, 0, 0, 0.55); }
+:root[data-theme='light'] .modal::backdrop { background: rgba(16, 24, 40, 0.32); }
+.modal-body { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 1.35rem 1.15rem; }
+.modal-title { margin: 0; font-size: 1.1rem; font-weight: 650; }
+.modal-field { display: flex; flex-direction: column; gap: 0.4rem; }
+.modal-label { font-size: 0.8125rem; color: var(--text-dim); font-weight: 500; }
+.modal-hint { font-size: 0.8125rem; color: var(--text-faint); }
+.modal .rename-input { font-size: 0.95rem; padding: 0.5rem 0.7rem; }
+.modal .color-swatch-input { width: 44px; height: 38px; }
+.modal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
+.modal-actions-gap { flex: 1; }
 
 /* Same fixed layout as the app table, so the merged breakdown reads as a
    smaller version of the list it came from. */
@@ -1407,11 +1427,10 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 .color-swatch-input::-webkit-color-swatch-wrapper { padding: 0; }
 .color-swatch-input::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .rename-input.color-hex-input {
-  flex: 0 0 6.6rem; width: 6.6rem;
+  flex: 0 0 7.5rem; width: 7.5rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.8125rem;
 }
-.app-title .rename-input.color-hex-input { font-size: 0.95rem; font-weight: 500; }
 .rename-input[aria-invalid='true'] { border-color: var(--danger); }
 
 /* ------------------------------------------------------ chart affordances */
@@ -1583,12 +1602,10 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 .app-card .app-icon { border-radius: 12px; }
 .app-card-actions { display: inline-flex; align-items: center; gap: 0.15rem; }
 .app-card-name { display: flex; align-items: center; gap: 0.35rem; min-width: 0; font-weight: 600; font-size: 1.02rem; }
-.app-card-name .rename-form { flex-direction: column; align-items: stretch; }
 .app-card-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
 .app-card-total { margin-top: 0.7rem; font-size: 1.55rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .app-card-io { display: flex; gap: 0.9rem; margin-top: 0.15rem; color: var(--text-dim); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
 .app-card-days { margin-top: 0.15rem; color: var(--text-faint); font-size: 0.8125rem; }
-.app-card-bar { margin-top: 0.85rem; }
 
 /* A hidden app, listed again with "Show hidden". */
 .row--hidden td { opacity: 0.55; }

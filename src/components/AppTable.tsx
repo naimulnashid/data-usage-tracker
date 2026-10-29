@@ -9,7 +9,6 @@ import { AppIcon } from './AppIcon';
 import { AppMenu } from './AppMenu';
 import { AppCard, HiddenToggle, ViewToggle, useAppsView } from './AppsViews';
 import { Card, CardTitle } from './Card';
-import { RenameApp } from './RenameApp';
 import { formatBytes, formatCount } from '@/lib/format';
 
 type SortKey = 'name' | 'sent' | 'received' | 'total' | 'rows';
@@ -25,8 +24,10 @@ const COLUMNS: { key: SortKey; label: string; numeric: boolean }[] = [
 /**
  * The laptop's Apps card: every app, as a table or as a grid of cards.
  *
- * The table carried a Share column until 3.7.0. The Top 10 above shows the
- * large shares and the small ones drew as nothing, so it went.
+ * Neither view shows a share: the table's Share column went in 3.7.0 and the
+ * grid's size bar after it. The Top 10 above shows the large shares and the
+ * small ones drew as nothing. Nor do they badge an app's kind (store,
+ * service): it said how Windows records the app, not anything about its use.
  */
 export function AppTable({
   apps, colors, custom = [], icons, base, device, sub,
@@ -77,7 +78,6 @@ export function AppTable({
     return copy;
   }, [visible, sort, asc]);
 
-  const max = Math.max(...listed.map((a) => a.total), 1);
   const detailedCount = listed.filter((a) => a.detailed).length;
   const candidates = useMemo(() => apps.map((a) => ({ key: a.key, name: a.name })), [apps]);
 
@@ -106,20 +106,12 @@ export function AppTable({
     );
   };
   const menuOf = (a: AppRow) => (
-    <AppMenu platform="windows" device={device} appKey={a.key} name={a.name} hidden={a.hidden} candidates={candidates} />
+    <AppMenu
+      platform="windows" device={device} appKey={a.key} name={a.name} hidden={a.hidden} candidates={candidates}
+      baseName={a.baseName} color={rawColorOf(colors, a.name)} customColor={custom.includes(a.key)}
+    />
   );
-  const renameOf = (a: AppRow, children: React.ReactNode) => (
-    <RenameApp
-      variant="row" platform="windows" device={device}
-      appKey={a.key} name={a.name} baseName={a.baseName}
-      color={rawColorOf(colors, a.name)} customColor={custom.includes(a.key)}
-    >
-      {children}
-    </RenameApp>
-  );
-  const kindOf = (a: AppRow) => a.kind !== 'path' && (
-    <span className="badge app-kind">{a.kind === 'appx' ? 'store' : a.kind}</span>
-  );
+  const hiddenBadge = (a: AppRow) => a.hidden && <span className="badge app-kind">hidden</span>;
 
   return (
     <Card delay={90} hover={false}>
@@ -167,10 +159,9 @@ export function AppTable({
                           do not -- the swatch is what ties this row to its band
                           in the stacked chart, so it is a fallback, not a gap. */}
                       <AppIcon name={a.name} color={colorOf(colors, a.name)} icons={icons} />
-                      {renameOf(a, nameOf(a))}
+                      {nameOf(a)}
                       {menuOf(a)}
-                      {kindOf(a)}
-                      {a.hidden && <span className="badge app-kind">hidden</span>}
+                      {hiddenBadge(a)}
                     </span>
                   </td>
                   <td className="num">{formatBytes(a.sent)}</td>
@@ -196,11 +187,10 @@ export function AppTable({
               received={a.received}
               total={a.total}
               days={a.days}
-              max={max}
               hidden={a.hidden}
-              title={renameOf(a, nameOf(a))}
+              title={nameOf(a)}
               actions={menuOf(a)}
-              badges={(kindOf(a) || a.hidden) && <>{kindOf(a)}{a.hidden && <span className="badge app-kind">hidden</span>}</>}
+              badges={hiddenBadge(a)}
             />
           ))}
         </div>

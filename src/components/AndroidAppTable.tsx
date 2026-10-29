@@ -9,7 +9,6 @@ import { AppIcon } from './AppIcon';
 import { AppMenu } from './AppMenu';
 import { AppCard, HiddenToggle, ViewToggle, useAppsView } from './AppsViews';
 import { Card, CardTitle } from './Card';
-import { RenameApp } from './RenameApp';
 import { formatBytes } from '@/lib/format';
 
 /*
@@ -61,7 +60,6 @@ export function AndroidAppTable({
   const hiddenCount = apps.filter((a) => a.hidden).length;
   const listed = useMemo(() => (showHidden ? apps : apps.filter((a) => !a.hidden)), [apps, showHidden]);
   const visible = useMemo(() => (expanded ? listed : listed.slice(0, TOP)), [listed, expanded]);
-  const max = Math.max(...listed.map((a) => a.total), 1);
   const candidates = useMemo(() => apps.map((a) => ({ key: String(a.uid), name: a.name })), [apps]);
 
   const hrefOf = (a: AndroidApp) => (earnsDetail(a.total, a.days) ? `${base}/apps/${a.uid}` : undefined);
@@ -76,17 +74,11 @@ export function AndroidAppTable({
       <span className="app-name" title={`${a.name} - uid ${a.uid} - too little activity for a detail page`}>{a.name}</span>
     );
   };
-  const renameOf = (a: AndroidApp, children: React.ReactNode) => (
-    <RenameApp
-      variant="row" platform="android" device={device}
-      appKey={String(a.uid)} name={a.name} baseName={a.baseName}
-      color={rawColorOf(colors, a.name)} customColor={custom.includes(String(a.uid))}
-    >
-      {children}
-    </RenameApp>
-  );
   const menuOf = (a: AndroidApp) => (
-    <AppMenu platform="android" device={device} appKey={String(a.uid)} name={a.name} hidden={a.hidden} candidates={candidates} />
+    <AppMenu
+      platform="android" device={device} appKey={String(a.uid)} name={a.name} hidden={a.hidden} candidates={candidates}
+      baseName={a.baseName} color={rawColorOf(colors, a.name)} customColor={custom.includes(String(a.uid))}
+    />
   );
   const badgesOf = (a: AndroidApp) => (
     <>
@@ -128,7 +120,7 @@ export function AndroidAppTable({
                   <td>
                     <span className="app-cell">
                       <AppIcon name={a.name} color={colorOf(colors, a.name)} icons={icons} />
-                      {renameOf(a, nameOf(a))}
+                      {nameOf(a)}
                       {menuOf(a)}
                       {badgesOf(a)}
                     </span>
@@ -156,9 +148,8 @@ export function AndroidAppTable({
               received={a.rx}
               total={a.total}
               days={a.days}
-              max={max}
               hidden={a.hidden}
-              title={renameOf(a, nameOf(a))}
+              title={nameOf(a)}
               actions={menuOf(a)}
               badges={hasBadges(a) ? badgesOf(a) : undefined}
             />

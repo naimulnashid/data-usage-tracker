@@ -7,9 +7,10 @@ import { THEME_SCRIPT, THEME_COLORS } from '@/lib/theme';
 import { ServiceWorker } from '@/components/ServiceWorker';
 
 export const metadata: Metadata = {
-  // Pages name themselves (lib/page-title.ts); this adds the suffix, and is
-  // the whole title for anything that does not.
-  title: { default: 'Data Usage Dashboard', template: '%s · Data Usage Dashboard' },
+  // Pages name themselves (lib/page-title.ts); this is the title of anything
+  // that does not. No suffix: an installed window already puts the app's name
+  // before the title, and a suffix showed it twice.
+  title: 'Data Usage Dashboard',
   description: 'Local dashboard over Windows per-app network usage history.',
   // The manifest itself is src/app/manifest.ts, linked by Next. iOS reads
   // neither its icons nor its display mode, so it gets its own two lines.

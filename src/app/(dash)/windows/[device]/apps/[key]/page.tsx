@@ -114,7 +114,7 @@ export default async function AppDetailPage({
       <div className="page-head">
         <Link href={`${base}/apps`} className="back-link">&larr; All apps</Link>
         <RenameApp
-          variant="title" platform="windows" device={device.slug}
+          platform="windows" device={device.slug}
           appKey={app.key} name={app.name} baseName={app.baseName}
           color={rawColorOf(colors, app.name)} customColor={getAppColorOverrides().has(app.key)}
           icon={<AppIcon name={app.name} color={colorOf(colors, app.name)} icons={icons} size="1.1em" />}

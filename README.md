@@ -369,9 +369,10 @@ uploads keep it awake, and the Supabase dashboard restores it if not.
 have a 7d / 30d / 90d / All menu at their top right, opening on 30d.
 **Sync now** in the top bar runs a collection on demand.
 
-**Your own names, colours and groupings.** The pencil beside an app's name
-renames it or gives it a colour (picked, or typed as a hex code). The "..."
-beside it hides the app from By App, or merges it into another app; a merged
+**Your own names, colours and groupings.** On By App, the "..." beside an
+app's name opens **Rename or recolour…** (a colour picked, or typed as a hex
+code), hides the app from By App, or merges it into another app; on an app's
+own page the pencil beside its name renames it. A merged
 app is then counted as part of that app everywhere, and its detail page's
 Merged apps card separates it again. All of these are stored in the database
 with the history.

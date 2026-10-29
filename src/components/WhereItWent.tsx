@@ -106,6 +106,9 @@ export function NetworkDonut({ networks, total }: { networks: DonutNetwork[]; to
               {networks.map((n, i) => <Cell key={n.id} fill={colors[i]} />)}
             </Pie>
             <Tooltip
+              // Above the centre total, which follows the chart in the DOM
+              // and so painted over the tooltip's text.
+              wrapperStyle={{ zIndex: 3 }}
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
                 const n = payload[0]?.payload as DonutNetwork | undefined;

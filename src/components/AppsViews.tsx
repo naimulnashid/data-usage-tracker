@@ -52,7 +52,7 @@ export function ViewToggle({ view, onChange }: { view: AppsView; onChange: (v: A
  * and assistive tech, and clicks on the card's own controls are left alone.
  */
 export function AppCard({
-  name, href, color, icons, sent, received, total, days, max, badges, actions, title, hidden, index,
+  name, href, color, icons, sent, received, total, days, badges, actions, title, hidden, index,
 }: {
   name: string;
   href?: string;
@@ -62,12 +62,10 @@ export function AppCard({
   received: number;
   total: number;
   days: number;
-  /** The largest app's total, for the size bar. */
-  max: number;
   badges?: ReactNode;
-  /** The rename pencil and the menu. */
+  /** The menu. */
   actions: ReactNode;
-  /** The name, or the rename form while editing. */
+  /** The name, a link when the app has a detail page. */
   title: ReactNode;
   hidden?: boolean;
   index: number;
@@ -79,7 +77,7 @@ export function AppCard({
       style={{ animationDelay: `${Math.min(index * 22, 360)}ms` }}
       onClick={(e) => {
         if (!href) return;
-        if ((e.target as HTMLElement).closest('a, button, input, select, form, label')) return;
+        if ((e.target as HTMLElement).closest('a, button, input, select, form, label, dialog')) return;
         router.push(href);
       }}
     >
@@ -95,9 +93,6 @@ export function AppCard({
         <span title="Downloaded">&darr; {formatBytes(received)}</span>
       </div>
       <div className="app-card-days">{days} active {days === 1 ? 'day' : 'days'}</div>
-      <div className="bar-track app-card-bar">
-        <div className="bar-fill" style={{ width: `${(total / Math.max(max, 1)) * 100}%`, background: color }} />
-      </div>
     </div>
   );
 }

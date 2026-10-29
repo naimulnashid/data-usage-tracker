@@ -106,7 +106,7 @@ export default async function AndroidAppPage({
       <div className="page-head">
         <Link href={`/android/${slug}/apps`} className="back-link">&larr; All apps on this phone</Link>
         <RenameApp
-          variant="title" platform="android" device={device.slug}
+          platform="android" device={device.slug}
           appKey={String(app.uid)} name={app.name} baseName={app.baseName}
           color={rawColorOf(colors, app.name)} customColor={getAndroidColorOverrides(device.deviceId).has(String(app.uid))}
           icon={<AppIcon name={app.name} color={color} icons={icons} size="1.1em" />}
