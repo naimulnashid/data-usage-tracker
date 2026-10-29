@@ -37,18 +37,12 @@ import 'server-only';
 import type { DatabaseSync } from 'node:sqlite';
 import { openDatabase } from './db';
 import { databasePath } from './android-ingest';
+import { checkRename, type RenameError } from './rename-rule';
 
 /** The `device` value for the laptop. There is only ever one. */
 export const WINDOWS_RENAMES = 'windows';
 
-/** Longest name accepted. Long enough for a real product name, short enough for a legend. */
-export const MAX_NAME_LENGTH = 60;
-
-/**
- * Names `assignColors` and `colorOf` treat specially. Taking one would hand an
- * app the grey reserved for "everything else".
- */
-const RESERVED = new Set(['other', 'unattributed']);
+export { MAX_NAME_LENGTH, cleanName, type RenameError } from './rename-rule';
 
 /** app_key -> chosen name, for one device. Empty when none or no table yet. */
 export function readRenames(db: DatabaseSync, device: string): Map<string, string> {
@@ -64,48 +58,20 @@ export function readRenames(db: DatabaseSync, device: string): Map<string, strin
 }
 
 /**
- * Tidy a submitted name: trim, collapse inner whitespace, drop control
- * characters. Returns null for a name that is unusable after that.
- */
-export function cleanName(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  // eslint-disable-next-line no-control-regex
-  const name = raw.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
-  if (name.length === 0 || name.length > MAX_NAME_LENGTH) return null;
-  return name;
-}
-
-export type RenameError = 'unknown-app' | 'bad-name' | 'reserved' | 'taken';
-
-/**
- * Validate and store (or clear) one rename.
- *
- * `current` is every app on the device as it is displayed right now, renames
- * included, keyed like `app_key`; `base` is what this app would be called with
- * no rename. Passing an empty name, or the base name itself, clears the
- * override rather than storing a no-op.
+ * Validate and store (or clear) one rename. The rule is `checkRename`'s;
+ * this adds the write.
  */
 export function saveRename(opts: {
   device: string;
   key: string;
   name: unknown;
-  current: Map<string, string>;
+  current: Map<string, { name: string; base: string }>;
   base: string;
 }): { ok: true; name: string } | { ok: false; error: RenameError } {
-  const { device, key, current, base } = opts;
-  if (!current.has(key)) return { ok: false, error: 'unknown-app' };
-
-  const reset = typeof opts.name === 'string' && opts.name.trim() === '';
-  const name = reset ? base : cleanName(opts.name);
-  if (name === null) return { ok: false, error: 'bad-name' };
-
-  if (!reset && name !== base) {
-    const lower = name.toLowerCase();
-    if (RESERVED.has(lower)) return { ok: false, error: 'reserved' };
-    for (const [k, shown] of current) {
-      if (k !== key && shown.toLowerCase() === lower) return { ok: false, error: 'taken' };
-    }
-  }
+  const { device, key, base } = opts;
+  const verdict = checkRename(opts);
+  if (!verdict.ok) return verdict;
+  const { name } = verdict;
 
   // Through openDatabase, like the phone's ingest: the system-drive guard and
   // the schema -- which is what creates app_renames -- apply here too.

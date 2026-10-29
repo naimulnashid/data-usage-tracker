@@ -19,13 +19,15 @@
  * `sql` prints SHA-256 digests only. Neither token appears in its output.
  */
 
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import {
   inboxConfig, secret, loadInboxKey, newInboxKeyPem, publicKeyB64, fingerprint,
   uploadBearer, sha256Hex, drainInbox,
 } from '../src/lib/inbox';
+import { configPath } from '../src/lib/config-path';
+import { openDatabase, checkpointWal, backupDatabase } from '../src/lib/db';
 
 function need<T>(value: T | null | undefined, message: string): T {
   if (value === null || value === undefined) {
@@ -33,6 +35,30 @@ function need<T>(value: T | null | undefined, message: string): T {
     process.exit(1);
   }
   return value;
+}
+
+/**
+ * Back up after a drain that landed something.
+ *
+ * The drain deletes each envelope from the inbox once it is in the database,
+ * and the collector runs it AFTER ingest has taken that run's backup -- so a
+ * phone upload sat in the live database alone, with the inbox's copy gone,
+ * until the next hour's backup. A restore in that gap lost it. The private
+ * bridge always backed up after its drain; this is the same step for the
+ * public path.
+ */
+async function backupAfterDrain(): Promise<void> {
+  const cfg = JSON.parse(readFileSync(configPath(), 'utf8')) as Record<string, unknown>;
+  if (cfg['backupEnabled'] === false) return;
+  const db = openDatabase(String(cfg['databasePath']));
+  try {
+    checkpointWal(db);
+    const status = await backupDatabase(db, String(cfg['backupPath']));
+    console.log(`backup: ${status}`);
+    if (status !== 'ok') process.exitCode = 1;
+  } finally {
+    db.close();
+  }
 }
 
 const NO_CONFIG = 'No "inbox" in config/collector.json. Set { "url": ..., "keyPath": ... } first.';
@@ -107,6 +133,7 @@ async function main(): Promise<void> {
           `${((Date.now() - started) / 1000).toFixed(1)}s`,
       );
       if (out!.failed > 0) process.exitCode = 1;
+      if (out!.landed > 0 && !flags.includes('--dry-run')) await backupAfterDrain();
       return;
     }
 

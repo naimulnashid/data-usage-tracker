@@ -58,6 +58,13 @@ class UsageReader(private val context: Context) {
         val tx: Long,
     )
 
+    /**
+     * What one read produced. [failedAt] is the start of the first window
+     * Android would not answer for, when there was one: [buckets] then hold
+     * only the windows BEFORE it, so the watermark cannot pass it.
+     */
+    data class Read(val buckets: List<Bucket>, val failedAt: Long?)
+
     data class AppInfo(
         val uid: Int,
         val packageName: String,
@@ -75,8 +82,19 @@ class UsageReader(private val context: Context) {
      * instant no matter when the sync ran -- otherwise the same traffic would
      * land under a different key on every upload and the upsert would never
      * match.
+     *
+     * **A window Android fails to answer for ends the read there.** It used
+     * to be skipped: the read went on, the later windows were sent, and the
+     * watermark moved past the gap, which nothing ever went back for. An empty
+     * window and a failed one both came out as "no rows". Now the read stops
+     * at the first failure, keeps only the windows before it -- that window's
+     * other network included, or a half-read window would be stored as whole
+     * -- and says where it stopped, so the next sync starts there.
+     *
+     * [cancel] is checked between windows: a first backfill is ~1,000 of them,
+     * and a stopped job must not go on reading.
      */
-    fun read(from: Long, now: Long = System.currentTimeMillis()): List<Bucket> {
+    fun read(from: Long, now: Long = System.currentTimeMillis(), cancel: Cancel = Cancel()): Read {
         val out = ArrayList<Bucket>()
         var start = (from / bucketMs) * bucketMs
         val end = ((now / bucketMs) + 1) * bucketMs
@@ -87,12 +105,16 @@ class UsageReader(private val context: Context) {
         val mobile = mobileSubscriberIds()
 
         while (start < end) {
+            cancel.check()
             val stop = start + bucketMs
-            collect(ConnectivityManager.TYPE_WIFI, "wifi", wifi, start, stop, out)
-            collect(ConnectivityManager.TYPE_MOBILE, "mobile", mobile, start, stop, out)
+            val window = ArrayList<Bucket>()
+            val read = collect(ConnectivityManager.TYPE_WIFI, "wifi", wifi, start, stop, window) &&
+                collect(ConnectivityManager.TYPE_MOBILE, "mobile", mobile, start, stop, window)
+            if (!read) return Read(out, start)
+            out.addAll(window)
             start = stop
         }
-        return out
+        return Read(out, null)
     }
 
     /**
@@ -162,6 +184,7 @@ class UsageReader(private val context: Context) {
 
     /**
      * One 2-hour window of one network type, summed across [subscriberIds].
+     * False when Android would not answer, with nothing added to [into].
      *
      * Several ids only happens for mobile below API 29, one per SIM. Their
      * IMSIs are distinct, so their buckets are disjoint traffic and summing
@@ -174,7 +197,7 @@ class UsageReader(private val context: Context) {
         start: Long,
         end: Long,
         into: MutableList<Bucket>,
-    ) {
+    ): Boolean {
 
         /*
           SUM within one read, do not just emit each bucket.
@@ -207,7 +230,7 @@ class UsageReader(private val context: Context) {
             } catch (e: RemoteException) {
                 // The whole window, not just this SIM: emitting the other SIMs'
                 // share alone would store a partial sum under the full key.
-                return
+                return false
             }
 
             stats.use {
@@ -228,6 +251,7 @@ class UsageReader(private val context: Context) {
             }
         }
         into.addAll(merged.values)
+        return true
     }
 
     /**

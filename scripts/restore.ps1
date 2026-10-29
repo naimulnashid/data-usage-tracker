@@ -3,7 +3,7 @@
 
         .\restore.ps1              # inspect, confirm, restore
         .\restore.ps1 -Force       # skip the confirmation prompt
-        .\restore.ps1 -WhatIf      # report only, change nothing
+        .\restore.ps1 -DryRun      # report only, change nothing
 
     Run this after a Windows reset, once the repo is cloned and `npm install`
     has run. It does NOT need Administrator -- only the collector does.
@@ -16,6 +16,12 @@
     produces a cloud copy that looks perfectly fine and restores wrong. The
     backup is written by SQLite's own backup API as a single self-contained
     file, which is why it is the restore source.
+
+    The database being replaced is kept, beside it, as a single consistent
+    copy (.replaced-<stamp>), made the same way. Moving only its main file
+    aside lost every committed row still in its -wal. Nothing is replaced
+    while another process has it open: stop the dashboard and the Data Usage
+    tasks first.
 #>
 
 [CmdletBinding()]
@@ -57,6 +63,31 @@ function Get-DbInfo {
     return $json | ConvertFrom-Json
 }
 
+# A consistent single-file copy, WAL included -- see db-copy.mjs.
+function Copy-Db {
+    param([string]$From, [string]$To)
+    $node = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
+    $helper = Join-Path $PSScriptRoot 'db-copy.mjs'
+    if (-not (Test-Path $helper)) { throw "Helper not found: $helper" }
+    $json = & $node $helper $From $To 2>&1 | Select-Object -Last 1
+    return $json | ConvertFrom-Json
+}
+
+# Whether any process holds the file. Windows refuses a share-nothing open
+# while another handle exists, which is exactly the question; the handle is
+# closed at once.
+function Test-InUse {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $fs = [System.IO.File]::Open($Path, 'Open', 'ReadWrite', 'None')
+        $fs.Close()
+        return $false
+    } catch {
+        return $true
+    }
+}
+
 Write-Step "Source"
 
 if (-not (Test-Path $backup)) {
@@ -94,6 +125,14 @@ if ($liveExists) {
     Write-Ok "No existing database -- clean restore."
 }
 
+$busy = @("$live", "$live-wal") | Where-Object { Test-InUse $_ }
+if ($busy) {
+    Write-Bad "In use by another process: $($busy -join ', ')"
+    Write-Host "  Stop the dashboard (scripts\dashboard-stop.ps1) and the Data Usage" -ForegroundColor Yellow
+    Write-Host "  scheduled tasks, then run this again. Nothing was changed." -ForegroundColor Yellow
+    exit 1
+}
+
 if ($DryRun) {
     Write-Step "Dry run -- nothing changed"
     Write-Host "  Would copy the backup to $live" -ForegroundColor DarkGray
@@ -111,39 +150,78 @@ Write-Step "Restoring"
 $liveDir = Split-Path -Parent $live
 New-Item -ItemType Directory -Force -Path $liveDir | Out-Null
 
-# Move the existing database aside rather than overwriting it. If the backup
-# turns out to be older than expected, the only other copy should still exist.
+# Keep the existing database rather than overwriting it. If the backup turns
+# out to be older than expected, it is the only other copy.
+#
+# Kept as a consistent COPY, not by moving the main file: its newest committed
+# rows can live only in -wal, and a .db moved without it silently lacks them.
+# The copy is checked against what was just read from the live file before
+# anything is removed. An unreadable file cannot be copied that way, so it is
+# moved aside with its sidecars, renamed together so that SQLite still pairs
+# them (it finds a WAL by appending -wal to the database's name).
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$aside = "$live.replaced-$stamp"
 if ($liveExists) {
-    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $aside = "$live.replaced-$stamp"
-    Move-Item -Path $live -Destination $aside -Force
-    Write-Ok "Existing database moved aside -> $(Split-Path -Leaf $aside)"
+    if ($liveInfo.ok) {
+        $copied = Copy-Db $live $aside
+        if (-not $copied.ok) { Write-Bad "Could not copy the existing database aside: $($copied.error)"; exit 1 }
+        $asideInfo = Get-DbInfo $aside
+        if (-not $asideInfo.ok -or $asideInfo.integrity -ne 'ok' -or $asideInfo.rows -ne $liveInfo.rows) {
+            Write-Bad "The copy of the existing database does not match it; nothing was replaced."
+            Write-Host "         copy: $aside" -ForegroundColor DarkGray
+            exit 1
+        }
+        Write-Ok "Existing database kept -> $(Split-Path -Leaf $aside) ($($asideInfo.rows) rows, WAL included)"
+        Remove-Item $live -Force
+    } else {
+        Move-Item -Path $live -Destination $aside
+        Write-Ok "Unreadable database moved aside -> $(Split-Path -Leaf $aside)"
+    }
 }
 
-# Remove stale WAL sidecars at the DESTINATION before copying.
+# Clear the sidecars at the DESTINATION before copying.
 #
 # This is the step that matters. A -wal/-shm pair left over from a different
 # database will be replayed against the file we just put there, and SQLite has
 # no way to know they do not belong together. Read-only connections (the
 # dashboard opens one per request) cannot clean these up on close, so they
-# routinely outlive the database they came from.
+# routinely outlive the database they came from. A readable database's WAL is
+# already inside the copy kept above; an unreadable one keeps its sidecars
+# beside its own file.
 foreach ($suffix in '-wal', '-shm') {
     $sidecar = "$live$suffix"
     if (Test-Path $sidecar) {
-        Remove-Item $sidecar -Force
-        Write-Ok "Removed stale $suffix at destination"
+        if ($liveExists -and -not $liveInfo.ok) {
+            Move-Item -Path $sidecar -Destination "$aside$suffix"
+            Write-Ok "Moved its $suffix aside with it"
+        } else {
+            Remove-Item $sidecar -Force
+            Write-Ok "Removed stale $suffix at destination"
+        }
     }
 }
 
-Copy-Item -Path $backup -Destination $live -Force
+# Staged, so a copy that fails partway never sits at the live path.
+$staging = "$live.restoring"
+Copy-Item -Path $backup -Destination $staging -Force
+Move-Item -Path $staging -Destination $live
 Write-Ok "Copied backup -> $live"
 
 Write-Step "Verifying"
 
 $check = Get-DbInfo $live
-if (-not $check.ok)                    { Write-Bad "Restored file is unreadable: $($check.error)"; exit 1 }
-if ($check.integrity -ne 'ok')         { Write-Bad "Restored file failed integrity_check"; exit 1 }
-if ($check.rows -ne $info.rows)        { Write-Bad "Row count mismatch: $($check.rows) vs $($info.rows)"; exit 1 }
+$problem = if (-not $check.ok) { "Restored file is unreadable: $($check.error)" }
+           elseif ($check.integrity -ne 'ok') { "Restored file failed integrity_check" }
+           elseif ($check.rows -ne $info.rows) { "Row count mismatch: $($check.rows) vs $($info.rows)" }
+if ($problem) {
+    Write-Bad $problem
+    if ($liveExists) {
+        Write-Host "  The previous database is intact at:" -ForegroundColor Yellow
+        Write-Host "    $aside" -ForegroundColor Yellow
+        Write-Host "  To go back to it, delete $live and rename that file to it." -ForegroundColor Yellow
+    }
+    exit 1
+}
 
 Write-Ok "$($check.rows) rows - $($check.first) -> $($check.last) - integrity ok"
 

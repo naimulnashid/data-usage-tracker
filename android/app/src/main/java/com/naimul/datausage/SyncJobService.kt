@@ -24,21 +24,33 @@ import android.util.Log
  */
 class SyncJobService : JobService() {
 
+    /** The running sync's stop signal. One job id, so at most one at a time. */
+    @Volatile
+    private var cancel: Cancel? = null
+
     override fun onStartJob(params: JobParameters?): Boolean {
         // JobService callbacks run on the main thread; the read can span
         // hundreds of querySummary calls on a first backfill.
+        val mine = Cancel()
+        cancel = mine
         Thread {
-            val result = SyncRunner(applicationContext).runOnce()
+            val result = SyncRunner(applicationContext).runOnce(mine)
             Log.i(TAG, "sync: ${result.message}")
+            // A stopped job no longer owns its callback: the system already
+            // took it back in onStopJob.
             // Never reschedule on failure: the job is periodic, so the next run
             // is already booked, and a retry storm on a phone that simply is
             // not on the right network wastes battery for nothing.
-            jobFinished(params, false)
+            if (!mine.cancelled) jobFinished(params, false)
         }.start()
         return true
     }
 
-    override fun onStopJob(params: JobParameters?): Boolean = true
+    /** Stop the work, not just the job: see [Cancel]. True asks for a retry. */
+    override fun onStopJob(params: JobParameters?): Boolean {
+        cancel?.cancel()
+        return true
+    }
 
     companion object {
         private const val TAG = "DataUsageSync"

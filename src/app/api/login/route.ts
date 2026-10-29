@@ -26,7 +26,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: passwordProblem() }, { status: 503 });
   }
 
-  const verdict = throttle.check(Date.now());
+  // Charged now, before any await: see `admit`.
+  const verdict = throttle.admit(Date.now());
   if (!verdict.allowed) {
     const seconds = Math.ceil(verdict.retryAfterMs / 1000);
     return NextResponse.json(
@@ -43,7 +44,6 @@ export async function POST(request: Request) {
   }
 
   if (typeof submitted !== 'string' || !(await safeEqual(submitted, expected))) {
-    throttle.recordFailure(Date.now());
     await new Promise((r) => setTimeout(r, WRONG_PASSWORD_DELAY_MS));
     return NextResponse.json({ error: 'wrong-password' }, { status: 401 });
   }

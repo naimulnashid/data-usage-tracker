@@ -47,6 +47,12 @@ export interface AndroidBucket {
   roaming: boolean;
   rx: number;
   tx: number;
+  /**
+   * The phone's UTC offset at THIS bucket, sent only where it differs from
+   * the payload's (app 1.5.2+). One upload-time offset for every bucket put a
+   * backfill across a DST change an hour out on the far side of it.
+   */
+  utcOffsetMinutes?: number;
 }
 
 export interface AndroidPayload {
@@ -59,7 +65,11 @@ export interface AndroidPayload {
   appVersion?: string;
   /**
    * The device's UTC offset in minutes at upload time, used to derive
-   * local_date / local_hour.
+   * local_date / local_hour for every bucket that carries none of its own.
+   *
+   * A bucket already stored keeps its local date and hour: the first upload
+   * of it is the one made closest to when it happened, so after travel a
+   * re-read does not move old history into the new zone.
    *
    * Sent by the phone rather than taken from the server, because the phone is
    * the machine whose day boundaries the reader cares about -- and it may not
@@ -98,6 +108,11 @@ function optionalText(value: unknown, field: string, max: number): void {
   }
 }
 
+/** A UTC offset in whole minutes; real ones run from -12:00 to +14:00. */
+function isOffset(v: unknown): v is number {
+  return Number.isInteger(v) && Math.abs(v as number) <= 15 * 60;
+}
+
 /**
  * Throws with a readable reason rather than writing something half-valid.
  *
@@ -114,9 +129,7 @@ export function validatePayload(body: unknown, now: number = Date.now()): Androi
   if (typeof p.deviceId !== 'string' || p.deviceId.length < 8 || p.deviceId.length > 128) {
     throw new Error('deviceId must be a string of 8-128 characters');
   }
-  if (!Number.isInteger(p.utcOffsetMinutes) || Math.abs(p.utcOffsetMinutes as number) > 15 * 60) {
-    throw new Error('utcOffsetMinutes out of range');
-  }
+  if (!isOffset(p.utcOffsetMinutes)) throw new Error('utcOffsetMinutes out of range');
   optionalText(p.label, 'label', 128);
   optionalText(p.brand, 'brand', 128);
   optionalText(p.model, 'model', 128);
@@ -152,6 +165,9 @@ export function validatePayload(body: unknown, now: number = Date.now()): Androi
     if (!NETWORKS.has(b.network)) throw new Error(`bucket.network must be one of ${[...NETWORKS].join(', ')}`);
     if (!Number.isSafeInteger(b.rx) || !Number.isSafeInteger(b.tx) || b.rx < 0 || b.tx < 0) {
       throw new Error('bucket.rx and bucket.tx must be non-negative integers');
+    }
+    if (b.utcOffsetMinutes !== undefined && !isOffset(b.utcOffsetMinutes)) {
+      throw new Error('bucket.utcOffsetMinutes out of range');
     }
   }
   return p as AndroidPayload;
@@ -289,7 +305,7 @@ export function ingestAndroid(payload: AndroidPayload, opts: IngestOptions = {})
 
       for (const b of payload.buckets) {
         const iso = new Date(b.start).toISOString();
-        const { date, hour } = localParts(b.start, payload.utcOffsetMinutes);
+        const { date, hour } = localParts(b.start, b.utcOffsetMinutes ?? payload.utcOffsetMinutes);
         const res = upsertBucket.run(
           payload.deviceId, b.uid, iso, date, hour,
           b.network, b.metered ? 1 : 0, b.roaming ? 1 : 0,

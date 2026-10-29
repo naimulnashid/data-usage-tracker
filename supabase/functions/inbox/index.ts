@@ -43,6 +43,9 @@ const DEFAULT_APP = 'data-usage';
 const MIN_ENVELOPE_BYTES = 4 + 65 + 12 + 16;
 /** Envelopes per /pending response, so one reply stays far below memory limits. */
 const MAX_PAGE = 10;
+/** An ack names at most a page's worth of ids; these leave room and stop there. */
+const MAX_ACK_IDS = 100;
+const MAX_ACK_BYTES = 64 * 1024;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -94,14 +97,44 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
+/**
+ * The body, or null once it passes `max` bytes -- counted as it streams, not
+ * after. `arrayBuffer()` buffers the whole thing first, and a chunked body
+ * declares no length to refuse up front.
+ */
+async function readCapped(req: Request, max: number): Promise<Uint8Array | null> {
+  const declared = Number(req.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > max) return null;
+  if (!req.body) return new Uint8Array(0);
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    body.set(c, at);
+    at += c.length;
+  }
+  return body;
+}
+
+/** An envelope id: PostgREST would take anything, so only these reach a filter. */
+const isId = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) > 0;
+
 async function store(req: Request, app: string): Promise<Response> {
   const { magic, maxBytes } = APPS[app];
-  const declared = Number(req.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) {
-    return json({ ok: false, error: 'body-too-large' }, 413);
-  }
-  const body = new Uint8Array(await req.arrayBuffer());
-  if (body.length > maxBytes) return json({ ok: false, error: 'body-too-large' }, 413);
+  const body = await readCapped(req, maxBytes);
+  if (!body) return json({ ok: false, error: 'body-too-large' }, 413);
   const wantMagic = [...magic].map((c) => c.charCodeAt(0));
   if (body.length < MIN_ENVELOPE_BYTES || wantMagic.some((b, i) => body[i] !== b)) {
     // Most likely an older app posting plain JSON at the inbox address.
@@ -140,13 +173,20 @@ async function pending(url: URL, app: string): Promise<Response> {
 }
 
 async function ack(req: Request, app: string): Promise<Response> {
-  const body = (await req.json().catch(() => null)) as
-    | { done?: unknown; failed?: unknown }
-    | null;
-  const done = Array.isArray(body?.done) ? body.done.filter(Number.isInteger) as number[] : [];
+  const raw = await readCapped(req, MAX_ACK_BYTES);
+  if (!raw) return json({ ok: false, error: 'body-too-large' }, 413);
+  let body: { done?: unknown; failed?: unknown } | null = null;
+  try {
+    body = JSON.parse(new TextDecoder().decode(raw));
+  } catch {
+    /* treated as an empty ack, as before */
+  }
+  const done = Array.isArray(body?.done) ? body.done.filter(isId) : [];
   const failed = Array.isArray(body?.failed)
-    ? (body.failed as { id?: unknown; error?: unknown }[]).filter((f) => Number.isInteger(f?.id))
+    ? (body.failed as { id?: unknown; error?: unknown }[]).filter((f) => isId(f?.id))
     : [];
+  // Checked before any write, so an oversized ack changes nothing at all.
+  if (done.length + failed.length > MAX_ACK_IDS) return json({ ok: false, error: 'too-many-ids' }, 413);
 
   // app=eq.<app> on every write: an id belonging to the other app is a no-op.
   if (done.length > 0) {

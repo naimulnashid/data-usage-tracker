@@ -175,7 +175,7 @@ function labelFor(
 const NOT_TETHER = `uid != ${UID_TETHERING}`;
 
 /**
- * Every query below is scoped to ONE device.
+ * Every query below is scoped to ONE device, except `getAndroidDevices`.
  *
  * There can be more than one phone, and with the filter missing they would all
  * report identical numbers at different URLs -- which looks like the routing is
@@ -954,11 +954,14 @@ export interface AndroidDeviceSummary {
 export function getAndroidDevices(): AndroidDeviceSummary[] {
   if (!androidReady()) return [];
   return withDb((db) => {
+    // The one query here that spans every device, so no OF_DEVICE: with it,
+    // the `?` went unbound, matched nothing, and every phone totalled 0 --
+    // which left the sidebar and `/android`'s pick in table order.
     const totals = new Map<string, number>();
     for (const r of db
       .prepare(
         `SELECT device_id d, SUM(rx_bytes + tx_bytes) b FROM android_usage_records
-         WHERE ${OF_DEVICE} AND ${NOT_TETHER} GROUP BY device_id`,
+         WHERE ${NOT_TETHER} GROUP BY device_id`,
       )
       .all() as { d: string; b: number }[]) {
       totals.set(r.d, Number(r.b));

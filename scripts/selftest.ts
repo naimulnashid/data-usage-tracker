@@ -39,6 +39,7 @@ import { mergeAndroidDevice } from '../src/lib/android-merge.js';
 import { isSameOrigin } from '../src/lib/same-origin.js';
 import { parseDays, ALL_DAYS, DEFAULT_DAYS } from '../src/lib/scope.js';
 import { LoginThrottle, DEFAULT_THROTTLE } from '../src/lib/login-throttle.js';
+import { checkRename } from '../src/lib/rename-rule.js';
 import {
   issueSession, verifySession, passwordStatus, MIN_PASSWORD_LENGTH,
 } from '../src/lib/auth.js';
@@ -46,7 +47,7 @@ import {
   sealEnvelope, openEnvelope, envelopeJson, newInboxKeyPem, publicKeyB64, fingerprint, uploadBearer,
 } from '../src/lib/inbox.js';
 import { openDatabase, hasColumn } from '../src/lib/db.js';
-import { createPrivateKey } from 'node:crypto';
+import { createHash, createPrivateKey } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -290,6 +291,7 @@ async function main(): Promise<void> {
   dayChecks();
   heatmapChecks();
   await securityChecks();
+  await inboxFunctionChecks();
 
   console.log(failures === 0 ? '\nAll checks passed.\n' : `\n${failures} check(s) FAILED.\n`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -561,6 +563,28 @@ function androidChecks(): void {
     rejects({ ...androidPayload(), utcOffsetMinutes: 20 * 60 }, 'an impossible utc offset');
     rejects({
       ...androidPayload(),
+      buckets: [{ uid: 1, start: T, network: 'wifi', metered: false, roaming: false, rx: 1, tx: 1, utcOffsetMinutes: 1.5 }],
+    }, 'a fractional per-bucket offset');
+
+    // A backfill across a DST change: the bucket before it carries its own
+    // offset, and lands on its own local day rather than today's.
+    const dstDb = join(dir, 'dst.db');
+    ingestAndroid(androidPayload({
+      utcOffsetMinutes: 60,
+      buckets: [
+        { uid: 10181, start: T - 2 * 3600_000, network: 'wifi', metered: false, roaming: false, rx: 1, tx: 1, utcOffsetMinutes: 0 },
+        { uid: 10181, start: T - 2 * 3600_000 + 7200_000, network: 'wifi', metered: false, roaming: false, rx: 1, tx: 1 },
+      ],
+    }), { dbPath: dstDb, allowSystemDrive: true });
+    const dst = new DatabaseSync(dstDb, { readOnly: true });
+    const parts = dst.prepare(
+      `SELECT local_date || ' ' || local_hour p FROM android_usage_records ORDER BY bucket_start_utc`,
+    ).all().map((r) => (r as { p: string }).p).join(', ');
+    dst.close();
+    check("a bucket's own offset decides its local day and hour",
+      parts === '2026-08-25 22, 2026-08-26 1', parts);
+    rejects({
+      ...androidPayload(),
       buckets: [{ uid: 1, start: T, network: 'ethernet', metered: false, roaming: false, rx: 1, tx: 1 }],
     }, 'an unknown network type');
     rejects({
@@ -708,6 +732,27 @@ async function securityChecks(): Promise<void> {
   days('abc', DEFAULT_DAYS);
   days(undefined, DEFAULT_DAYS);
 
+  // The rename rule, reset included.
+  const shown = (pairs: [string, string, string][]) =>
+    new Map(pairs.map(([k, name, base]) => [k, { name, base }]));
+  const apps = shown([['a', 'Custom', 'Alpha'], ['b', 'Alpha', 'Beta'], ['c', 'Gamma', 'Gamma']]);
+  const rename = (key: string, name: unknown, base: string, current = apps) =>
+    checkRename({ key, name, base, current });
+  check('a rename may not take a name another app shows',
+    JSON.stringify(rename('c', 'alpha', 'Gamma')) === '{"ok":false,"error":"taken"}');
+  check('a reset may not take its base name back from a renamed app',
+    JSON.stringify(rename('a', '', 'Alpha')) === '{"ok":false,"error":"taken"}');
+  check('typing the base name is a reset, and checked the same way',
+    JSON.stringify(rename('a', ' Alpha ', 'Alpha')) === '{"ok":false,"error":"taken"}');
+  check('a reset is let through once the name is free',
+    JSON.stringify(rename('a', '', 'Alpha', shown([['a', 'Custom', 'Alpha'], ['b', 'Beta', 'Beta']])))
+      === '{"ok":true,"name":"Alpha"}');
+  check('a clash that predates any rename does not block a reset',
+    JSON.stringify(rename('a', '', 'Alpha', shown([['a', 'Custom', 'Alpha'], ['b', 'Alpha', 'Alpha']])))
+      === '{"ok":true,"name":"Alpha"}');
+  check('the reserved names are refused',
+    JSON.stringify(rename('c', 'Other', 'Gamma')) === '{"ok":false,"error":"reserved"}');
+
   // The login throttle, on an injected clock.
   const o = DEFAULT_THROTTLE;
   const t = new LoginThrottle();
@@ -738,6 +783,20 @@ async function securityChecks(): Promise<void> {
   const afterSuccess = reset.check(lateNow + o.maxFailures);
   check('the right password resets escalation',
     !afterSuccess.allowed && afterSuccess.retryAfterMs <= o.baseLockMs, JSON.stringify(afterSuccess));
+  // A burst admitted before any of it completes: the route awaits the body and
+  // the comparison after admit(), so only admission can bound it.
+  const burst = new LoginThrottle();
+  let admitted = 0;
+  for (let i = 0; i < o.maxFailures * 5; i++) if (burst.admit(5_000).allowed) admitted++;
+  check('a concurrent burst gets no more attempts than the budget',
+    admitted === o.maxFailures, `admitted ${admitted}`);
+  const refund = new LoginThrottle();
+  let refused = 0;
+  for (let i = 0; i < o.maxFailures * 3; i++) {
+    if (!refund.admit(9_000 + i).allowed) refused++;
+    refund.recordSuccess();
+  }
+  check('successful sign-ins refund what admission charged', refused === 0, `refused ${refused}`);
 
   // Sessions.
   const pw = 'correct horse battery staple';
@@ -819,6 +878,65 @@ async function securityChecks(): Promise<void> {
   check('pager: clamps a page past the end', clampPage('99', 12) === 12);
   check('pager: junk is page 1', clampPage('abc', 12) === 1 && clampPage(undefined, 12) === 1 && clampPage('-3', 12) === 1);
   check('pager: floors a fraction', clampPage('4.7', 12) === 4);
+}
+
+/**
+ * The cloud inbox's Edge Function, run here against a stubbed Deno and a
+ * stubbed PostgREST: its routing, its body caps and the app scoping of every
+ * write. The real deployment is not reached; nothing here needs a network.
+ */
+async function inboxFunctionChecks(): Promise<void> {
+  console.log('\n== inbox function ==');
+  const token = 'selftest-token-'.padEnd(32, 'x');
+  const digest = createHash('sha256').update(token).digest('hex');
+  const writes: string[] = [];
+  let handler: ((r: Request) => Promise<Response>) | undefined;
+  const g = globalThis as unknown as { Deno?: unknown; fetch: typeof fetch };
+  const realFetch = g.fetch;
+  g.Deno = {
+    env: { get: (k: string) => (k === 'SUPABASE_URL' ? 'http://db.invalid' : 'service-key') },
+    serve: (h: (r: Request) => Promise<Response>) => { handler = h; },
+  };
+  g.fetch = (async (url: string, init: RequestInit = {}) => {
+    const path = String(url).replace('http://db.invalid/rest/v1/', '');
+    if (path.startsWith('inbox_keys')) {
+      // One key, for data-usage's drain role only.
+      const mine = path.includes('app=eq.data-usage') && path.includes('role=eq.drain');
+      return new Response(JSON.stringify(mine ? [{ token_sha256: digest }] : []));
+    }
+    if (init.method && init.method !== 'GET') writes.push(`${init.method} ${path}`);
+    return new Response('[]');
+  }) as typeof fetch;
+  try {
+    // By URL, so tsc does not pull Deno code into this project's typecheck.
+    await import(new URL('../supabase/functions/inbox/index.ts', import.meta.url).href);
+    const call = async (path: string, body: BodyInit, headers: Record<string, string> = {}) => {
+      writes.length = 0;
+      const init = { method: 'POST', headers: { authorization: `Bearer ${token}`, ...headers }, body, duplex: 'half' };
+      return (await handler!(new Request(`http://fn.invalid/functions/v1/inbox${path}`, init as RequestInit))).status;
+    };
+    const chunks = (n: number) => new ReadableStream({
+      start(c) { for (let i = 0; i < n; i++) c.enqueue(new Uint8Array(64 * 1024)); c.close(); },
+    });
+    const ack = (o: unknown) => JSON.stringify(o);
+
+    check('ack deletes only within its own app',
+      await call('/ack', ack({ done: [1, 2] })) === 200
+        && writes.join() === 'DELETE inbox_envelopes?app=eq.data-usage&id=in.(1,2)', writes.join());
+    check('ack drops ids that are not positive safe integers',
+      await call('/ack', ack({ done: [0, -1, 1.5, 1e300, '7', 5] })) === 200
+        && writes.join() === 'DELETE inbox_envelopes?app=eq.data-usage&id=in.(5)', writes.join());
+    check('ack refuses too many ids before writing anything',
+      await call('/ack', ack({ done: Array.from({ length: 101 }, (_, i) => i + 1) })) === 413
+        && writes.length === 0, writes.join());
+    check('ack refuses a body past its cap, chunked or not',
+      await call('/ack', chunks(16)) === 413 && writes.length === 0);
+    check("another app's mailbox refuses this app's drain token",
+      await call('/screen-time/ack', ack({ done: [1] })) === 401 && writes.length === 0);
+  } finally {
+    g.fetch = realFetch;
+    delete g.Deno;
+  }
 }
 
 main().catch((err) => {

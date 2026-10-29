@@ -21,6 +21,13 @@
  * and accepting a correct one would let guessing continue straight through the
  * lock.
  *
+ * **An attempt is charged when it is ADMITTED, not when it fails.** The route
+ * awaits the body and the comparison after admitting, so counting failures as
+ * they completed let a burst of requests all pass the check before the first
+ * was charged: a thousand in flight at once were a thousand guesses. `admit`
+ * charges synchronously, so the eleventh concurrent request in a window is
+ * refused, and the right password refunds the budget through `recordSuccess`.
+ *
  * Pure and clock-injected so the self-test can drive it without timers.
  */
 
@@ -58,6 +65,17 @@ export class LoginThrottle {
   check(now: number): ThrottleVerdict {
     if (now < this.lockedUntil) return { allowed: false, retryAfterMs: this.lockedUntil - now };
     return { allowed: true };
+  }
+
+  /**
+   * The route's one call per attempt: refuse while locked, else charge the
+   * attempt as a failure before any await. The attempt that spends the budget
+   * is still allowed -- it is within it -- and locks out the ones after it.
+   */
+  admit(now: number): ThrottleVerdict {
+    const verdict = this.check(now);
+    if (verdict.allowed) this.recordFailure(now);
+    return verdict;
   }
 
   recordFailure(now: number): void {

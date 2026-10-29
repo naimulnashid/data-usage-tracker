@@ -29,13 +29,17 @@ const MESSAGES: Record<RenameError, string> = {
 };
 
 export async function POST(request: Request) {
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'bad-request' }, { status: 400 });
   }
-  const { platform, device, key, name } = body;
+  // `null` is valid JSON, and destructuring it throws: a 500 for a bad request.
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ ok: false, error: 'bad-request' }, { status: 400 });
+  }
+  const { platform, device, key, name } = body as Record<string, unknown>;
   if (typeof device !== 'string' || typeof key !== 'string' || typeof name !== 'string') {
     return NextResponse.json({ ok: false, error: 'bad-request' }, { status: 400 });
   }
@@ -60,7 +64,7 @@ export async function POST(request: Request) {
     device: deviceKey,
     key,
     name,
-    current: new Map([...names].map(([k, v]) => [k, v.name])),
+    current: names,
     base: app?.base ?? '',
   });
   if (!result.ok) {

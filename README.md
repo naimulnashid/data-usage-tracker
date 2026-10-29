@@ -20,9 +20,10 @@ reset, and shows them in a Next.js dashboard that runs on your own machine.
 how it works, every chart it draws (live, on invented data) and every
 feature.
 
-- **Local only.** No cloud service, no account, no telemetry, no outbound
-  requests. The dashboard listens on `127.0.0.1` unless you open it to your
-  network.
+- **Local only.** The history stays on your PC: no account, no telemetry.
+  The one optional outbound connection is the phones' end-to-end encrypted
+  cloud inbox; without it nothing leaves your network. The dashboard listens
+  on `127.0.0.1` unless you open it to your network.
 - **Windows 10/11.** The collector reads SRUM, the database behind Windows' own
   Data usage page.
 - **A personal tool, shared as is.** It is built and used on one machine, and
@@ -491,8 +492,11 @@ without resetting anything, with `npm run drill`.
    npm run restore
    ```
 
-   This copies the backup over the working database, never the reverse, moving
-   any existing database aside and clearing stale `-wal`/`-shm` files first.
+   This copies the backup over the working database, never the reverse. An
+   existing database is kept beside it first, as a complete single-file copy
+   (`.replaced-<time>`), and stale `-wal`/`-shm` files are cleared. It refuses
+   to run while the dashboard or a collector has the database open, so stop
+   them first.
 5. Recreate `.env.local`. **If you use the phone app, restore
    `ANDROID_INGEST_TOKEN` to its old value**; the phone has the old one, and
    otherwise stops syncing without saying so here.

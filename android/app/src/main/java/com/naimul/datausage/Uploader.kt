@@ -22,7 +22,7 @@ import java.util.zip.GZIPOutputStream
  * to the laptop's key (Sealer) and posted to the inbox, which stores it until
  * the laptop collects it. Nothing else about an upload changes.
  */
-class Uploader(private val prefs: Prefs) {
+class Uploader(private val prefs: Prefs, private val cancel: Cancel = Cancel()) {
 
     data class Result(val ok: Boolean, val message: String, val acceptedThrough: Long?)
 
@@ -219,6 +219,8 @@ class Uploader(private val prefs: Prefs) {
 
     private fun open(url: URL, method: String, bearer: String = prefs.token): HttpURLConnection {
         val conn = url.openConnection() as HttpURLConnection
+        // So a stopped job can cut this off: see Cancel.
+        cancel.track(conn)
         // Never follow a redirect. assertPrivateIfCleartext vets the address the
         // user typed, and a followed redirect would carry the request -- bearer
         // token included -- to one it never saw. The dashboard does not
@@ -255,7 +257,9 @@ class Uploader(private val prefs: Prefs) {
             put("appVersion", BuildConfig.VERSION_NAME)
             // The PHONE's offset, so the dashboard buckets days the way this
             // device experiences them rather than the way the server does.
-            put("utcOffsetMinutes", TimeZone.getDefault().getOffset(now) / 60_000)
+            val zone = TimeZone.getDefault()
+            val offset = zone.getOffset(now) / 60_000
+            put("utcOffsetMinutes", offset)
 
             put("apps", JSONArray().also { arr ->
                 for (a in apps) {
@@ -271,16 +275,21 @@ class Uploader(private val prefs: Prefs) {
 
             put("buckets", JSONArray().also { arr ->
                 for (b in buckets) {
-                    arr.put(
-                        JSONObject()
-                            .put("uid", b.uid)
-                            .put("start", b.start)
-                            .put("network", b.network)
-                            .put("metered", b.metered)
-                            .put("roaming", b.roaming)
-                            .put("rx", b.rx)
-                            .put("tx", b.tx),
-                    )
+                    val bucket = JSONObject()
+                        .put("uid", b.uid)
+                        .put("start", b.start)
+                        .put("network", b.network)
+                        .put("metered", b.metered)
+                        .put("roaming", b.roaming)
+                        .put("rx", b.rx)
+                        .put("tx", b.tx)
+                    // The offset AT THE BUCKET, where it differs from today's:
+                    // a backfill across a DST change otherwise put every bucket
+                    // on the far side of it an hour out. Only those buckets
+                    // carry one, so a phone without DST sends what it always did.
+                    val at = zone.getOffset(b.start) / 60_000
+                    if (at != offset) bucket.put("utcOffsetMinutes", at)
+                    arr.put(bucket)
                 }
             })
         }

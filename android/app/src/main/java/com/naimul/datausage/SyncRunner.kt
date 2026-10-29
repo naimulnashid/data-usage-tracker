@@ -16,22 +16,25 @@ class SyncRunner(private val context: Context) {
 
     data class Outcome(val ok: Boolean, val message: String)
 
+    /** Thrown out of a read or an upload that [Cancel.cancel] stopped. */
+    class Cancelled : Exception("Stopped by Android before it finished; the next sync picks it up")
+
     /**
      * One sync at a time, per process. The button and the job each run on a
      * thread of their own, and two at once read the same window and send it
      * twice. The loser returns without touching the last result: the sync
      * already running is the one that will report.
      */
-    fun runOnce(): Outcome {
+    fun runOnce(cancel: Cancel = Cancel()): Outcome {
         if (!running.compareAndSet(false, true)) return Outcome(true, ALREADY_RUNNING)
         return try {
-            runLocked()
+            runLocked(cancel)
         } finally {
             running.set(false)
         }
     }
 
-    private fun runLocked(): Outcome {
+    private fun runLocked(cancel: Cancel): Outcome {
         val prefs = Prefs(context)
         if (!prefs.isConfigured) return finish(prefs, false, "Server address and token not set")
         // An address saved by 1.4 or older was never checked. With the cloud
@@ -65,23 +68,35 @@ class SyncRunner(private val context: Context) {
                 System.currentTimeMillis() - 95L * 24 * 60 * 60 * 1000
             }
 
-            val buckets = reader.read(from)
-            if (buckets.isEmpty()) return finish(prefs, true, "Nothing new to send")
+            val read = reader.read(from, cancel = cancel)
+            val buckets = read.buckets
+            // Said in the result either way: a sync that stopped short is not OK,
+            // even when what came before the gap was stored.
+            val short = read.failedAt?.let {
+                "Android would not report usage from ${java.time.Instant.ofEpochMilli(it)}; the next sync retries from there"
+            }
+            if (buckets.isEmpty()) return finish(prefs, short == null, short ?: "Nothing new to send")
 
-            val result = Uploader(prefs).upload(buckets, reader.apps())
+            cancel.check()
+            val result = Uploader(prefs, cancel).upload(buckets, reader.apps())
             if (result.ok && result.acceptedThrough != null) {
                 // Advance from what the SERVER confirmed, never from what was
                 // sent. An upload that fails halfway must be retried, not
                 // skipped past.
                 prefs.syncedThrough = result.acceptedThrough
             }
-            finish(prefs, result.ok, result.message)
+            if (result.ok && short != null) finish(prefs, false, "${result.message}. $short")
+            else finish(prefs, result.ok, result.message)
+        } catch (e: Cancelled) {
+            finish(prefs, false, e.message!!)
         } catch (e: UsageReader.UsageAccessDenied) {
             finish(prefs, false, "Usage access was revoked")
         } catch (e: UsageReader.PhoneStateDenied) {
             finish(prefs, false, PHONE_STATE_MISSING)
         } catch (e: Exception) {
-            finish(prefs, false, e.message ?: e.javaClass.simpleName)
+            // A disconnected upload surfaces as an IOException, not Cancelled.
+            val message = if (cancel.cancelled) Cancelled().message!! else e.message ?: e.javaClass.simpleName
+            finish(prefs, false, message)
         }
     }
 

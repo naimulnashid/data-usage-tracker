@@ -21,6 +21,18 @@ interface PhonesLanded {
   rowsWritten: number;
 }
 
+/** How long a run may take before the button gives up, and how often it asks. */
+const POLL_BUDGET_MS = 120_000;
+const POLL_EVERY_MS = 2_000;
+
+/** A delay that ends early, without throwing, when `signal` aborts. */
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
 /** "Added 12 new rows. 1 phone upload landed (43 new rows)." */
 function outcome(added: number, phones: PhonesLanded | null): string {
   const parts: string[] = [];
@@ -56,15 +68,13 @@ export function SyncButton() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('idle');
   const [message, setMessage] = useState<string | null>(null);
-  const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+  const poll = useRef<AbortController | null>(null);
   const baseline = useRef<number | null>(null);
   const phonesBaseline = useRef(0);
 
   const stopPolling = useCallback(() => {
-    if (poll.current) {
-      clearInterval(poll.current);
-      poll.current = null;
-    }
+    poll.current?.abort();
+    poll.current = null;
   }, []);
 
   useEffect(() => stopPolling, [stopPolling]);
@@ -109,12 +119,37 @@ export function SyncButton() {
       // Poll for a NEW sync_log row rather than for the task going idle. The
       // task can report idle in the gap before the row lands, and the row is
       // what the user actually cares about.
-      let elapsed = 0;
-      poll.current = setInterval(async () => {
-        elapsed += 2;
+      //
+      // One request at a time, each with its own deadline, against a clock
+      // that runs whether or not they succeed. It used to be a setInterval
+      // whose 2-minute cut-off sat behind a successful fetch: with the server
+      // down, every poll failed, the cut-off never ran, and the button said
+      // "Collecting" forever while requests piled up behind each other.
+      stopPolling();
+      const control = new AbortController();
+      poll.current = control;
+      const deadline = Date.now() + POLL_BUDGET_MS;
+      while (!control.signal.aborted) {
+        await sleep(POLL_EVERY_MS, control.signal);
+        if (control.signal.aborted) return;
+        if (Date.now() > deadline) {
+          // The collector normally finishes well inside this. Giving up here
+          // means something is wrong, and saying so beats spinning forever.
+          stopPolling();
+          setPhase('error');
+          setMessage('Timed out after 2 minutes. Check logs\\collector-*.log.');
+          return;
+        }
+        // Its own controller, so a hung request is cut off without ending
+        // the loop; unmounting aborts both.
+        const request = new AbortController();
+        const cut = () => request.abort();
+        const timer = setTimeout(cut, POLL_EVERY_MS * 5);
+        control.signal.addEventListener('abort', cut, { once: true });
         try {
           const s = (await fetch(`/api/sync?phonesSince=${phonesBaseline.current}`, {
             cache: 'no-store',
+            signal: request.signal,
           }).then((r) => r.json())) as {
             running: boolean;
             lastRun: LastRun | null;
@@ -123,18 +158,13 @@ export function SyncButton() {
 
           const isNew = s.lastRun && s.lastRun.id !== baseline.current;
           if (isNew && !s.running) return finish(s.lastRun, s.phones ?? null);
-
-          // The collector normally finishes well inside this. Giving up here
-          // means something is wrong, and saying so beats spinning forever.
-          if (elapsed > 120) {
-            stopPolling();
-            setPhase('error');
-            setMessage('Timed out after 2 minutes. Check logs\\collector-*.log.');
-          }
         } catch {
-          /* transient - keep polling */
+          /* transient, or aborted - the loop's own checks decide */
+        } finally {
+          clearTimeout(timer);
+          control.signal.removeEventListener('abort', cut);
         }
-      }, 2000);
+      }
     } catch {
       setPhase('error');
       setMessage('Could not reach the server.');

@@ -8,7 +8,12 @@ export function Footer() {
   return (
     <footer className="footer">
       <div className="container footer-base">
-        <span>Local only &middot; no telemetry, no outbound requests</span>
+        {/*
+          Not "no outbound requests": with the cloud inbox set up, the drain
+          talks to it. The page itself still fetches nothing off this origin,
+          which the CSP in next.config.mjs enforces.
+        */}
+        <span>Stored on this PC &middot; no telemetry</span>
         {/*
           Year comes from the clock rather than a literal, so the notice does not
           quietly go stale on 1 January.

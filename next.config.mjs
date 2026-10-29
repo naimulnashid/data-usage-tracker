@@ -8,8 +8,8 @@ import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
  * request, which the prerendered login page cannot carry. What it CAN do is
  * shut every door this dashboard never uses -- no framing, no plugins, no form
  * posts or fetches to anywhere but itself, no remote images or fonts. That last
- * part also makes the footer's "no outbound requests" something the browser
- * enforces rather than something the code promises.
+ * part means the page itself fetches nothing off this origin, something the
+ * browser enforces rather than something the code promises.
  *
  * `next dev` needs eval for React Refresh, so development alone relaxes that.
  */
