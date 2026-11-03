@@ -616,7 +616,7 @@ function drawTable(d) {
   const toggle = `<div class="view-toggle" role="group" aria-label="View">
     <button type="button" data-view="table" aria-pressed="${tableView === 'table'}">Table</button>
     <button type="button" data-view="grid" aria-pressed="${tableView === 'grid'}">Grid</button></div>`;
-  const apps = d.apps.slice(0, 8).slice().sort((a, b) => {
+  const apps = d.apps.slice(0, 10).slice().sort((a, b) => {
     const r = tableSort.key === 'name' ? a.name.localeCompare(b.name) : a[tableSort.key] - b[tableSort.key];
     return tableSort.asc ? r : -r;
   });
