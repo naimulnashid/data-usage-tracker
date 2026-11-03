@@ -209,6 +209,9 @@ is no build at all; otherwise it serves what is on disk, and
 npm run build
 ```
 
+A running dashboard restarts itself on the new build about 15 seconds after the
+build finishes. Pages fail while the build runs.
+
 ### 4. Add an Android phone (optional)
 
 Set `ANDROID_INGEST_TOKEN` and `DASHBOARD_HOST=0.0.0.0` (see

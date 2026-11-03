@@ -394,6 +394,8 @@ as sensitive even on a home network.
 - **`dashboard-stop.ps1` stops this dashboard, not whatever holds the port.**
   A listener counts as this dashboard only when its command line runs Next from
   this repo's own `node_modules\`; other local Node servers are left alone.
+  The listener is matched by its shape (no remote end, a real owner), not by
+  its reported state, which Windows can get wrong.
 - **Logos are served by a route**, not from `public/`, because `next start`
   snapshots `public/` at boot. See `public/apps_logo/README.md`.
 - **Loading skeletons mirror each page's sections at measured heights**, so
