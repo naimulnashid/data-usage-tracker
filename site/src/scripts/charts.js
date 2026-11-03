@@ -59,18 +59,18 @@ const DEVICES = {
     seed: 20260923,
     upShare: 0.16,
     apps: [
-      { name: 'qBittorrent', color: '#2F6790', w: 1.1, burst: 0.12, burstSize: 14 },
-      { name: 'Microsoft Edge', color: '#0078D7', w: 1.4 },
-      { name: 'Google Drive', color: '#FFBA00', w: 0.45, up: 0.45 },
-      { name: 'Microsoft Teams', color: '#6264A7', w: 0.35, up: 0.35, kind: 'store' },
-      { name: 'Chrome', color: '#4285F4', w: 0.22 },
-      { name: 'Node.js', color: '#68A063', w: 0.2 },
-      { name: 'Discord', color: '#5865F2', w: 0.15, up: 0.2 },
-      { name: 'VS Code', color: '#007ACC', w: 0.12 },
-      { name: 'System and Windows Update', color: '#0067B8', w: 0.11, kind: 'service', burst: 0.05, burstSize: 2 },
-      { name: 'Zoom', color: '#2D8CFF', w: 0.07, up: 0.4 },
-      { name: 'Telegram', color: '#24A1DE', w: 0.06 },
-      { name: 'Git', color: '#F1502F', w: 0.02 },
+      { name: 'qBittorrent', color: '#2F6790', logo: 'qbittorrent.svg', w: 1.1, burst: 0.12, burstSize: 14 },
+      { name: 'Microsoft Edge', color: '#0078D7', logo: 'microsoft-edge.svg', w: 1.4 },
+      { name: 'Google Drive', color: '#FFBA00', logo: 'google-drive.webp', w: 0.45, up: 0.45 },
+      { name: 'Microsoft Teams', color: '#6264A7', logo: 'microsoft-teams.svg', w: 0.35, up: 0.35, kind: 'store' },
+      { name: 'Chrome', color: '#4285F4', logo: 'chrome.svg', w: 0.22 },
+      { name: 'Node.js', color: '#68A063', logo: 'nodejs.svg', w: 0.2 },
+      { name: 'Discord', color: '#5865F2', logo: 'discord.svg', w: 0.15, up: 0.2 },
+      { name: 'VS Code', color: '#007ACC', logo: 'vs-code.svg', w: 0.12 },
+      { name: 'System and Windows Update', color: '#0067B8', logo: 'windows.svg', w: 0.11, kind: 'service', burst: 0.05, burstSize: 2 },
+      { name: 'Zoom', color: '#2D8CFF', logo: 'zoom.webp', w: 0.07, up: 0.4 },
+      { name: 'Telegram', color: '#24A1DE', logo: 'telegram.svg', w: 0.06 },
+      { name: 'Git', color: '#F1502F', logo: 'git.webp', w: 0.02 },
     ],
     gap: [44, 45, 46],
     hourShape: [3, 3, 3, 2.6, 3, 2.8, 0, 0, 0.4, 1.3, 2.6, 2.7, 2.4, 1.6, 1.5, 1.6, 1.3, 1.3, 0.9, 2.2, 3.4, 4.3, 3.6, 4],
@@ -89,16 +89,16 @@ const DEVICES = {
     seed: 20260930,
     upShare: 0.06,
     apps: [
-      { name: 'YouTube', color: '#FF0000', w: 0.55 },
+      { name: 'YouTube', color: '#FF0000', logo: 'youtube.webp', w: 0.55 },
       { name: 'Netflix', color: '#E50914', w: 0.22, burst: 0.08, burstSize: 1.4 },
-      { name: 'Instagram', color: '#E4405F', w: 0.16 },
-      { name: 'Google Play Store', color: '#01875F', w: 0.08, burst: 0.06, burstSize: 0.8 },
-      { name: 'Chrome', color: '#4285F4', w: 0.07 },
-      { name: 'WhatsApp', color: '#25D366', w: 0.05, up: 0.35 },
+      { name: 'Instagram', color: '#E4405F', logo: 'instagram.webp', w: 0.16 },
+      { name: 'Google Play Store', color: '#01875F', logo: 'google-play-store.webp', w: 0.08, burst: 0.06, burstSize: 0.8 },
+      { name: 'Chrome', color: '#4285F4', logo: 'chrome.svg', w: 0.07 },
+      { name: 'WhatsApp', color: '#25D366', logo: 'whatsapp.svg', w: 0.05, up: 0.35 },
       { name: 'Spotify', color: '#1DB954', w: 0.04 },
-      { name: 'Google Play services', color: '#4285F4', w: 0.03, kind: 'system' },
-      { name: 'Telegram', color: '#24A1DE', w: 0.02 },
-      { name: 'Maps', color: '#34A853', w: 0.015 },
+      { name: 'Google Play services', color: '#4285F4', logo: 'google-play-services.svg', w: 0.03, kind: 'system' },
+      { name: 'Telegram', color: '#24A1DE', logo: 'telegram.svg', w: 0.02 },
+      { name: 'Maps', color: '#34A853', logo: 'maps.svg', w: 0.015 },
     ],
     gap: [],
     hourShape: [1, 1, 1, 0.3, 1.6, 1.4, 2.6, 1.3, 1.5, 3.4, 7.2, 7.0],
@@ -598,22 +598,52 @@ function drawWhere(d, device) {
 }
 
 let tableSort = { key: 'total', asc: false };
+/** An app's mark: its logo where the site ships one, else its colour swatch, as in the dashboard. */
+function appMark(a, size) {
+  return a.logo
+    ? `<img class="app-logo" src="/logos/${a.logo}" alt="" width="${size}" height="${size}" style="width:${size}px;height:${size}px" loading="lazy" decoding="async">`
+    : `<i class="app-swatch" style="background:${ink(a.color)};width:${size}px;height:${size}px"></i>`;
+}
+
+/** Days the app moved anything, as the dashboard counts "active days". */
+const activeDays = (a) => a.series.filter((v) => v !== null && v > 0).length;
+
+// Grid first, as the user picked it for the site; the dashboard remembers
+// each visitor's own choice instead.
+let tableView = 'grid';
 function drawTable(d) {
-  const cols = [['name', 'App', false], ['tx', 'Sent', true], ['rx', 'Received', true], ['total', 'Total', true], ['rows', 'Records', true]];
+  const el = document.getElementById('v-table');
+  const toggle = `<div class="view-toggle" role="group" aria-label="View">
+    <button type="button" data-view="table" aria-pressed="${tableView === 'table'}">Table</button>
+    <button type="button" data-view="grid" aria-pressed="${tableView === 'grid'}">Grid</button></div>`;
   const apps = d.apps.slice(0, 8).slice().sort((a, b) => {
     const r = tableSort.key === 'name' ? a.name.localeCompare(b.name) : a[tableSort.key] - b[tableSort.key];
     return tableSort.asc ? r : -r;
   });
-  const head = cols.map(([k, label, num]) => {
-    const sorted = tableSort.key === k;
-    return `<th class="${num ? 'num' : ''}" aria-sort="${sorted ? (tableSort.asc ? 'ascending' : 'descending') : 'none'}"><button type="button" data-sort="${k}">${label}${sorted ? (tableSort.asc ? ' ↑' : ' ↓') : ''}</button></th>`;
-  }).join('');
-  const body = apps.map((a) => {
-    return `<tr><td><span class="app-cell"><i style="background:${ink(a.color)}"></i>${esc(a.name)}${a.kind ? ` <span class="badge">${a.kind}</span>` : ''}</span></td>
-      <td class="num">${fmt(a.tx)}</td><td class="num">${fmt(a.rx)}</td><td class="num total">${fmt(a.total)}</td><td class="num" style="color:var(--text-dim)">${a.rows.toLocaleString('en-US')}</td></tr>`;
-  }).join('');
-  const el = document.getElementById('v-table');
-  el.innerHTML = `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  let body;
+  if (tableView === 'grid') {
+    body = `<div class="app-grid">${apps.map((a) => `<div class="app-card">
+      ${appMark(a, 44)}
+      <div class="app-card-name">${esc(a.name)}</div>
+      <div class="app-card-total">${fmt(a.total)}</div>
+      <div class="app-card-io"><span>↑ ${fmt(a.tx)}</span><span>↓ ${fmt(a.rx)}</span></div>
+      <div class="app-card-days">${activeDays(a)} active days</div></div>`).join('')}</div>`;
+  } else {
+    const cols = [['name', 'App', false], ['tx', 'Sent', true], ['rx', 'Received', true], ['total', 'Total', true], ['rows', 'Records', true]];
+    const head = cols.map(([k, label, num]) => {
+      const sorted = tableSort.key === k;
+      return `<th class="${num ? 'num' : ''}" aria-sort="${sorted ? (tableSort.asc ? 'ascending' : 'descending') : 'none'}"><button type="button" data-sort="${k}">${label}${sorted ? (tableSort.asc ? ' ↑' : ' ↓') : ''}</button></th>`;
+    }).join('');
+    const rows = apps.map((a) => `<tr><td><span class="app-cell">${appMark(a, 20)}${esc(a.name)}</span></td>
+      <td class="num">${fmt(a.tx)}</td><td class="num">${fmt(a.rx)}</td><td class="num total">${fmt(a.total)}</td><td class="num" style="color:var(--text-dim)">${a.rows.toLocaleString('en-US')}</td></tr>`).join('');
+    body = `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  el.innerHTML = `<div class="table-bar">${toggle}</div>${body}`;
+  el.querySelectorAll('[data-view]').forEach((btn) => btn.addEventListener('click', () => {
+    tableView = btn.dataset.view;
+    drawTable(d);
+    el.querySelector(`[data-view="${tableView}"]`).focus();
+  }));
   el.querySelectorAll('[data-sort]').forEach((btn) => btn.addEventListener('click', () => {
     const k = btn.dataset.sort;
     tableSort = tableSort.key === k ? { key: k, asc: !tableSort.asc } : { key: k, asc: k === 'name' };
