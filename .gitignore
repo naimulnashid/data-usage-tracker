@@ -85,3 +85,7 @@ site/dist/
 site/node_modules/
 site/.astro/
 .vercel/
+
+# Logo folders make-screenshots.ts borrows for the demo devices during a run.
+/public/apps_logo/my-pc/
+/public/apps_logo/pixel-8/

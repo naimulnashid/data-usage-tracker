@@ -24,9 +24,9 @@ import {
 export const dynamic = 'force-dynamic';
 
 function StatCard({
-  label, totals, delay, accent = false, range,
+  label, totals, delay, accent = false,
 }: {
-  label: string; totals: Totals; delay: number; accent?: boolean; range?: string;
+  label: string; totals: Totals; delay: number; accent?: boolean;
 }) {
   const { unit } = splitBytes(totals.total);
   return (
@@ -40,7 +40,6 @@ function StatCard({
         <span title="Uploaded">&uarr; {formatBytes(totals.tx)}</span>
         <span title="Downloaded">&darr; {formatBytes(totals.rx)}</span>
       </div>
-      {range && <div className="stat-range">{range}</div>}
     </Card>
   );
 }
@@ -108,14 +107,17 @@ export default async function AndroidPage({
           a phone that synced an hour ago can still be a day behind, because
           Android's newest complete bucket is not "now".
         */}
-        <p>
-          {data.latestDate && <>Latest data {formatDayLong(data.latestDate)}</>}
-          {lastSync && (
-            <>
-              {data.latestDate && ' · '}
-              collected {formatRelative(lastSync.hoursAgo)}
-            </>
-          )}
+        <p className="page-head-line">
+          <span>
+            {data.latestDate && <>Latest data {formatDayLong(data.latestDate)}</>}
+            {lastSync && (
+              <>
+                {data.latestDate && ' · '}
+                collected {formatRelative(lastSync.hoursAgo)}
+              </>
+            )}
+          </span>
+          {coverage && <span>{coverage}</span>}
         </p>
       </div>
 
@@ -125,7 +127,7 @@ export default async function AndroidPage({
         must not change.
       */}
       <div className="grid grid--4" style={{ marginBottom: '1.15rem' }}>
-        <StatCard label="All" totals={data.all} delay={0} accent range={coverage} />
+        <StatCard label="All" totals={data.all} delay={0} accent />
         <StatCard label="Last 30 days" totals={data.month} delay={60} />
         <StatCard label="Last 7 days" totals={data.week} delay={120} />
         <StatCard label="Latest day" totals={data.today} delay={180} />

@@ -33,15 +33,13 @@ export const dynamic = 'force-dynamic';
  * showing it on one card only invited comparing figures that were not alike.
  */
 function StatCard({
-  label, totals, delay, accent = false, range,
+  label, totals, delay, accent = false,
 }: {
   label: string;
   totals: Totals;
   delay: number;
   /** The headline figure. Exactly one card should set this. */
   accent?: boolean;
-  /** Extra line under the arrows, for stating what "All" actually covers. */
-  range?: string;
 }) {
   const { unit } = splitBytes(totals.total);
   return (
@@ -58,7 +56,6 @@ function StatCard({
         <span title="Uploaded">&uarr; {formatBytes(totals.sent)}</span>
         <span title="Downloaded">&darr; {formatBytes(totals.received)}</span>
       </div>
-      {range && <div className="stat-range">{range}</div>}
     </Card>
   );
 }
@@ -130,10 +127,13 @@ export default async function OverviewPage({
     <>
       <div className="page-head">
         <h1>{device.label}</h1>
-        <p>
-          Latest data {formatDayLong(data.latestDate)}
-          {sync.hoursSinceSuccess != null && ` · collected ${formatRelative(sync.hoursSinceSuccess)}`}
-          {stale && <span className="badge badge--bad" style={{ marginLeft: '0.7rem' }}>collector may be stalled</span>}
+        <p className="page-head-line">
+          <span>
+            Latest data {formatDayLong(data.latestDate)}
+            {sync.hoursSinceSuccess != null && ` · collected ${formatRelative(sync.hoursSinceSuccess)}`}
+            {stale && <span className="badge badge--bad" style={{ marginLeft: '0.7rem' }}>collector may be stalled</span>}
+          </span>
+          {coverage && <span>{coverage}</span>}
         </p>
       </div>
 
@@ -143,11 +143,11 @@ export default async function OverviewPage({
         other three are context around it and stay near-white.
 
         "All" deliberately ignores the range selector -- it answers "how much
-        history do we hold", which a range control must not change. The date
-        line under it says exactly what that covers.
+        history do we hold", which a range control must not change. The span
+        it covers sits at the right of the line under the device name.
       */}
       <div className="grid grid--4" style={{ marginBottom: '1.15rem' }}>
-        <StatCard label="All" totals={data.all} delay={0} accent range={coverage} />
+        <StatCard label="All" totals={data.all} delay={0} accent />
         <StatCard label="Last 30 days" totals={data.month} delay={60} />
         <StatCard label="Last 7 days" totals={data.week} delay={120} />
         <StatCard label={latestLabel} totals={data.today} delay={180} />

@@ -32,9 +32,10 @@ how it works, every chart it draws (live, on invented data) and every feature.
 
 > **Every number in these images is invented.** They are captured from
 > `npm run demo:data`, a synthetic history loaded through the real collector and
-> phone code, by `npm run demo:shots`; see [Development](#development). No logos
-> ship, so apps show their colour swatch, as they will on a fresh install until
-> you add some. Each image follows your GitHub theme.
+> phone code, by `npm run demo:shots`; see [Development](#development). App
+> logos are not shipped: the script borrows any you have added for the run,
+> and a fresh install shows each app's colour swatch until you add some (see
+> [App logos](public/apps_logo/README.md)). Each image follows your GitHub theme.
 
 The whole Windows overview: totals, the daily trend with its spike days marked,
 a six-month heat map (outlined days were never collected, which is not the same

@@ -25,9 +25,10 @@ export default function Loading() {
       <SkPageHead
         title={windowsDevice().label}
         sub="Latest data Wednesday, 30 September 2026 · collected 51 min ago"
+        aside="Jun 23 – Sep 30 · 97 days"
       />
       <SkStats columns={4}>
-        <SkStat label="All" value="681" unit="GB" io={['120 GB', '561 GB']} range="Jun 23 – Sep 30 · 97 days" />
+        <SkStat label="All" value="681" unit="GB" io={['120 GB', '561 GB']} />
         <SkStat label="Last 30 days" value="184" unit="GB" io={['32.2 GB', '152 GB']} />
         <SkStat label="Last 7 days" value="55.3" unit="GB" io={['10.5 GB', '44.8 GB']} />
         <SkStat label="Today" value="1.32" unit="GB" io={['291 MB', '1.04 GB']} />

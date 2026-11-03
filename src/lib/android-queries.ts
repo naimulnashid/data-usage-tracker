@@ -18,6 +18,7 @@ import 'server-only';
  * "apps". This is the Android analogue of the `AppId = 1` trap.
  */
 
+import { cache } from 'react';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, existsSync } from 'node:fs';
 import { configPath } from './config-path';
@@ -1029,8 +1030,11 @@ export interface AndroidDeviceSummary {
  *
  * Ordered by bytes rather than by name so the sidebar leads with the device
  * that actually matters, the same way the network list does.
+ *
+ * Once per request (React `cache`): the layout's sidebar, the page's
+ * `deviceBySlug` and its title each ask, and it sums every phone's rows.
  */
-export function getAndroidDevices(): AndroidDeviceSummary[] {
+export const getAndroidDevices = cache((): AndroidDeviceSummary[] => {
   if (!androidReady()) return [];
   return withDb((db) => {
     // The one query here that spans every device, so no OF_DEVICE: with it,
@@ -1073,7 +1077,7 @@ export function getAndroidDevices(): AndroidDeviceSummary[] {
       })
       .sort((a, b) => b.total - a.total);
   });
-}
+});
 
 /** Resolve a URL slug back to a device, or null when it matches nothing. */
 export function deviceBySlug(slug: string): AndroidDeviceSummary | null {

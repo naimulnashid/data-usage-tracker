@@ -17,9 +17,9 @@ import {
 export default function Loading() {
   return (
     <>
-      <SkPageHead title="Phone" sub="Latest data Wednesday, 30 September 2026 · collected 41 min ago" />
+      <SkPageHead title="Phone" sub="Latest data Wednesday, 30 September 2026 · collected 41 min ago" aside="Jul 3 – Sep 30 · 90 days" />
       <SkStats columns={4}>
-        <SkStat label="All" value="114" unit="GB" io={['6.86 GB', '107 GB']} range="Jul 3 – Sep 30 · 90 days" />
+        <SkStat label="All" value="114" unit="GB" io={['6.86 GB', '107 GB']} />
         <SkStat label="Last 30 days" value="32.3" unit="GB" io={['2.10 GB', '30.2 GB']} />
         <SkStat label="Last 7 days" value="6.73" unit="GB" io={['520 MB', '6.22 GB']} />
         <SkStat label="Latest day" value="1007" unit="MB" io={['80.1 MB', '927 MB']} />

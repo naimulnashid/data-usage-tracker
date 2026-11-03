@@ -423,6 +423,14 @@ a:hover { color: var(--accent-bright); }
 
 .page-head { margin-bottom: 2.2rem; }
 .page-head p { margin: 0.4rem 0 0; color: var(--text-dim); font-size: var(--fs-small); }
+/* Freshness on the left, the span of history held on the right; they wrap
+   onto two lines rather than squeeze. */
+.page-head-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+}
 
 /* ---------------------------------------------------------------- cards */
 
@@ -1060,11 +1068,6 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
   margin-top: 0.4rem;
   white-space: nowrap;
 }
-.stat-range {
-  margin-top: 0.25rem;
-  font-size: 0.8125rem;
-  color: var(--text-faint);
-}
 
 /* --------------------------------------------------------------- by app */
 
@@ -1489,27 +1492,31 @@ select.chip option { background: var(--tooltip-bg); color: var(--text); }
 
 /* A chip-shaped native select with a calendar mark, in a card head's right
    slot (components/RangeMenu.tsx). */
+.range-menu-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
 .range-menu {
-  position: relative;
   display: inline-flex; align-items: center; gap: 0.4rem;
   flex-shrink: 0;
   padding: 0.38rem 0.75rem 0.38rem 0.7rem;
   border: 1px solid var(--border-strong); border-radius: 999px;
-  color: var(--text-dim); font-size: var(--fs-small); font-weight: 500;
+  background: none; color: var(--text-dim);
+  font: inherit; font-size: var(--fs-small); font-weight: 500;
+  cursor: pointer; outline: none;
   transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.range-menu:hover { color: var(--text); border-color: var(--text-faint); box-shadow: var(--shadow-control-hover); }
-.range-menu:focus-within { color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-.range-menu select {
-  appearance: none; border: 0; background-color: transparent; color: inherit;
-  font: inherit; cursor: pointer; padding: 0 1rem 0 0; outline: none;
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-                    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: calc(100% - 5px) 55%, 100% 55%;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
+.range-menu:hover, .range-menu[aria-expanded='true'] { color: var(--text); border-color: var(--text-faint); box-shadow: var(--shadow-control-hover); }
+.range-menu:focus-visible { color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.range-menu-caret {
+  width: 5px; height: 5px; margin: 0 0.1rem 0 0.2rem;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
 }
-.range-menu select option { background: var(--tooltip-bg); color: var(--text); }
+/* The "..." menu's panel and items (.app-menu), dropped from the pill rather
+   than fixed to the viewport: nothing around it clips. */
+.range-menu-wrap .range-menu-list {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  min-width: 10rem;
+}
+.range-menu-wrap .app-menu-item[aria-selected='true'] { color: var(--accent-bright); font-weight: 600; }
 
 /* ------------------------------------------------ where it went (3.7.0) */
 

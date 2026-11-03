@@ -181,7 +181,7 @@ try {
   // Indices are not cosmetic here: the UNIQUE dedup index is what makes the
   // collector idempotent. A restore that dropped it would look fine and then
   // duplicate every row on the next scheduled run.
-  const needIndexes = ['idx_usage_dedup', 'idx_usage_local_date', 'idx_usage_aggregate'];
+  const needIndexes = ['idx_usage_dedup', 'idx_usage_local_date', 'idx_usage_cover'];
   const missingIdx = needIndexes.filter((i) => !restored.indexes.includes(i));
   check(missingIdx.length === 0,
     `All ${restored.indexes.length} indexes survived, including the UNIQUE dedup index`,

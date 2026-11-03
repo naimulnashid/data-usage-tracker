@@ -133,10 +133,12 @@ export function SkMask({ children }: { children: React.ReactNode }) {
 
 /** `.page-head`, laid out from its real text. */
 export function SkPageHead({
-  title, sub, back, badge, appTitle = false,
+  title, sub, aside, back, badge, appTitle = false,
 }: {
   title: string;
   sub: string;
+  /** The right end of the sub line (an overview's history span). */
+  aside?: string;
   /** The "back" link above a detail page's title. */
   back?: string;
   /** A badge leading the sub line (a phone app's uid). */
@@ -157,13 +159,16 @@ export function SkPageHead({
       ) : (
         <h1 style={back ? { marginTop: '0.6rem' } : undefined}><SkText>{title}</SkText></h1>
       )}
-      <p>
-        {badge && (
-          <span className="badge" style={{ marginRight: '0.6rem', borderColor: 'transparent' }}>
-            <SkText>{badge}</SkText>
-          </span>
-        )}
-        <SkText>{sub}</SkText>
+      <p className={aside ? 'page-head-line' : undefined}>
+        <span>
+          {badge && (
+            <span className="badge" style={{ marginRight: '0.6rem', borderColor: 'transparent' }}>
+              <SkText>{badge}</SkText>
+            </span>
+          )}
+          <SkText>{sub}</SkText>
+        </span>
+        {aside && <SkText>{aside}</SkText>}
       </p>
     </div>
   );
@@ -211,7 +216,7 @@ export function SkCallout({ label, date, value }: { label: string; date: string;
  * match it at two widths), 'small' the 1.9rem the detail and sync pages use.
  */
 export function SkStat({
-  label, value, unit, size = 'hero', io, sub, range,
+  label, value, unit, size = 'hero', io, sub,
 }: {
   label: string;
   value: string;
@@ -219,7 +224,6 @@ export function SkStat({
   size?: 'hero' | 'small';
   io?: [string, string];
   sub?: string;
-  range?: string;
 }) {
   return (
     <div className="card">
@@ -231,7 +235,6 @@ export function SkStat({
         <div className="stat-io"><SkText>&uarr; {io[0]}</SkText><SkText>&darr; {io[1]}</SkText></div>
       )}
       {sub && <div className="stat-sub"><SkText>{sub}</SkText></div>}
-      {range && <div className="stat-range"><SkText>{range}</SkText></div>}
     </div>
   );
 }
@@ -454,6 +457,7 @@ export function SkRangeMenu() {
     <span className="range-menu" aria-hidden>
       <span className="skeleton" style={{ width: 15, height: 15, borderRadius: 4 }} />
       <SkText>30d</SkText>
+      <span className="range-menu-caret" />
     </span>
   );
 }

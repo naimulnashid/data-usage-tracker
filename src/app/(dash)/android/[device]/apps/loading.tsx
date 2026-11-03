@@ -22,7 +22,6 @@ export default function Loading() {
       <SkeletonGap />
       <SkCard
         title="Apps"
-        sub="Names and labels come from the phone itself, so there is no guessing. A uid shared by several packages says so, and Android cannot split those figures."
         aside={<SkViewToggle />}
       >
         <SkeletonTable rows={11} columns={5} />

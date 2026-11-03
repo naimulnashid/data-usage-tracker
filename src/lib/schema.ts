@@ -79,8 +79,27 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_dedup
 
 CREATE INDEX IF NOT EXISTS idx_usage_local_date ON usage_records(local_date);
 CREATE INDEX IF NOT EXISTS idx_usage_identity   ON usage_records(app_identity);
-CREATE INDEX IF NOT EXISTS idx_usage_aggregate  ON usage_records(is_aggregate, local_date);
 CREATE INDEX IF NOT EXISTS idx_usage_profile    ON usage_records(l2_profile_id);
+
+-- COVERING indexes: every column the dashboard's aggregates read, so a page
+-- sums the index and never visits the table. With the narrow indexes the
+-- planner still walked an index, then fetched each of ~78k rows from the
+-- table by rowid, and that was slower than no index at all: 160 ms against
+-- 37 ms for one per-device total, measured 2026-11-03. Across one page's
+-- queries the covering pair took the total from ~1.7 s to ~0.56 s. The cost
+-- is ~19 MB of index on a ~77 MB file.
+--
+-- idx_usage_aggregate(is_aggregate, local_date) is a prefix of the first and
+-- is dropped for it.
+DROP INDEX IF EXISTS idx_usage_aggregate;
+CREATE INDEX IF NOT EXISTS idx_usage_cover
+  ON usage_records(is_aggregate, local_date, app_identity, app_kind,
+                   l2_profile_id, interface_type, local_hour,
+                   bytes_sent, bytes_received, profile_name);
+-- The same by app first: the DISTINCT app list every name lookup starts from.
+CREATE INDEX IF NOT EXISTS idx_usage_app_cover
+  ON usage_records(is_aggregate, app_identity, app_kind, local_date,
+                   bytes_sent, bytes_received);
 
 -- One row per collector run. The reset-survival guarantee depends entirely on
 -- the scheduled task actually running, so a broken task must be visible in the
@@ -295,10 +314,16 @@ CREATE TABLE IF NOT EXISTS android_usage_records (
   PRIMARY KEY (device_id, uid, bucket_start_utc, network, metered, roaming)
 );
 
-CREATE INDEX IF NOT EXISTS idx_android_usage_date
-  ON android_usage_records(device_id, local_date);
-CREATE INDEX IF NOT EXISTS idx_android_usage_uid
-  ON android_usage_records(device_id, uid);
+-- Covering, for the reason given at idx_usage_cover: they replace the narrow
+-- (device_id, local_date) and (device_id, uid) indexes of the same purpose.
+DROP INDEX IF EXISTS idx_android_usage_date;
+DROP INDEX IF EXISTS idx_android_usage_uid;
+CREATE INDEX IF NOT EXISTS idx_android_usage_date_cover
+  ON android_usage_records(device_id, local_date, uid, network, local_hour,
+                           rx_bytes, tx_bytes);
+CREATE INDEX IF NOT EXISTS idx_android_usage_uid_cover
+  ON android_usage_records(device_id, uid, local_date, network, local_hour,
+                           rx_bytes, tx_bytes);
 
 -- One row per upload from a phone, mirroring sync_log's purpose: a phone that
 -- has quietly stopped reporting must be visible before its 90-day window

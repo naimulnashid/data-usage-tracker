@@ -28,8 +28,12 @@ import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
+import { resolveApp } from '../src/lib/app-name.js';
+import type { AppKind } from '../src/lib/srum.js';
+import { ICON_ALIASES, LOGO_ROOT } from '../src/lib/app-icons.js';
 import { issueSession, SESSION_COOKIE } from '../src/lib/auth.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -93,6 +97,92 @@ const THEMES = [
   { theme: 'dark', suffix: '' },
   { theme: 'light', suffix: '-light' },
 ] as const;
+
+/* ---------------------------------------------------------------- logos -- */
+
+/**
+ * The demo devices' logo folders, borrowed for the run.
+ *
+ * App logos are generic marks, not usage, so the screenshots show them. But
+ * none ship (public/apps_logo/README.md), so the demo devices have no folders
+ * of their own. For each one this picks the existing device folder that holds
+ * logos for the most of its demo apps, copies just those files into
+ * `apps_logo/<demo slug>/`, and removes the folder when the run ends. A
+ * folder per demo device, from a device of its own kind, keeps the rule that
+ * a phone never shows a laptop's marks.
+ *
+ * With no device folders at all, as on a fresh clone, every app shows its
+ * colour swatch, which is what the images showed before.
+ */
+const LOGO_DIR = path.join(ROOT, ...LOGO_ROOT);
+/** Written into a borrowed folder, so only a folder this script made is removed. */
+const DEMO_LOGO_MARKER = '.demo-logos';
+
+/** Each demo device's app names, as the dashboard will show them. */
+function demoAppNames(): Map<string, string[]> {
+  const db = new DatabaseSync(path.join(DEMO_DIR, 'data-usage.db'), { readOnly: true });
+  try {
+    const pc = new Set<string>();
+    for (const r of db
+      .prepare('SELECT DISTINCT app_identity i, app_kind k FROM usage_records WHERE is_aggregate = 0')
+      .all() as { i: string; k: string }[]) {
+      // Members too: the detail page's Merged apps card shows their logos.
+      const x = resolveApp(r.i, r.k as AppKind);
+      pc.add(x.displayName);
+      pc.add(x.memberName);
+    }
+    const phone = (db.prepare("SELECT DISTINCT label FROM android_apps WHERE label != ''").all() as { label: string }[])
+      .map((r) => r.label);
+    return new Map([['my-pc', [...pc]], ['pixel-8', phone]]);
+  } finally {
+    db.close();
+  }
+}
+
+/** The files in `dir` that would serve `names`, as the dashboard matches them. */
+function logoFilesFor(dir: string, names: string[]): string[] {
+  const byStem = new Map<string, string>();
+  for (const file of fs.readdirSync(dir)) {
+    if (file.startsWith('.')) continue;
+    byStem.set(path.parse(file).name.toLowerCase(), file);
+  }
+  const aliases = new Map(Object.entries(ICON_ALIASES).map(([k, v]) => [k.toLowerCase(), v.toLowerCase()]));
+  const out = new Set<string>();
+  for (const name of names) {
+    const lower = name.toLowerCase();
+    const file = byStem.get(lower) ?? byStem.get(aliases.get(lower) ?? '');
+    if (file) out.add(file);
+  }
+  return [...out];
+}
+
+/** Fills the demo devices' folders; returns the ones it made, to remove after. */
+function borrowLogos(): string[] {
+  if (!fs.existsSync(LOGO_DIR)) return [];
+  const made: string[] = [];
+  const names = demoAppNames();
+  const sources = fs.readdirSync(LOGO_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !names.has(e.name))
+    .map((e) => path.join(LOGO_DIR, e.name));
+
+  for (const [slug, apps] of names) {
+    const dest = path.join(LOGO_DIR, slug);
+    if (fs.existsSync(dest) && !fs.existsSync(path.join(dest, DEMO_LOGO_MARKER))) {
+      throw new Error(`${path.relative(ROOT, dest)} exists and was not made by this script. Move it aside first.`);
+    }
+    fs.rmSync(dest, { recursive: true, force: true });
+    const best = sources
+      .map((dir) => ({ dir, files: logoFilesFor(dir, apps) }))
+      .sort((a, b) => b.files.length - a.files.length)[0];
+    if (!best || best.files.length === 0) continue;
+    fs.mkdirSync(dest);
+    fs.writeFileSync(path.join(dest, DEMO_LOGO_MARKER), '');
+    for (const file of best.files) fs.copyFileSync(path.join(best.dir, file), path.join(dest, file));
+    made.push(dest);
+    console.log(`  logos for ${slug}: ${best.files.length} of ${apps.length} apps`);
+  }
+  return made;
+}
 
 const SHOTS: Shot[] = [
   { name: 'windows-overview', path: '/windows/my-pc' },
@@ -195,6 +285,7 @@ async function main(): Promise<void> {
   const { value } = await issueSession(password);
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
+  const logos = borrowLogos();
   const server = startDemoServer(password);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'demo-shots-'));
   let browser: ChildProcess | null = null;
@@ -326,6 +417,7 @@ async function main(): Promise<void> {
   } finally {
     browser?.kill();
     server.kill();
+    for (const dir of logos) fs.rmSync(dir, { recursive: true, force: true });
     // The browser holds its profile open for a moment after kill(), and a
     // failure to delete a temp folder must not mask why the run failed.
     await sleep(700);

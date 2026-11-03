@@ -1,5 +1,7 @@
 ---
 import Icon, { type IconName } from './Icon.astro';
+import Shot from './Shot.astro';
+import { screenshot } from '../lib/screenshots';
 
 const features: { icon: IconName; title: string; text: string }[] = [
   { icon: 'database', title: 'History that stays', text: 'Every hour appended to SQLite on a second drive, with a consistent backup beside it.' },
@@ -31,6 +33,16 @@ const features: { icon: IconName; title: string; text: string }[] = [
         ))
       }
     </ul>
+    <figure class="grid-shot">
+      <Shot
+        class="frame"
+        shot={screenshot('windows-apps-grid')}
+        alt="By App as a grid: one card per app with its logo, total, upload and download, and active days"
+        widths={[640, 960, 1280, 1600]}
+        sizes="(min-width: 1180px) 1040px, calc(100vw - 48px)"
+      />
+      <figcaption>By App as a grid. Every number shown is invented.</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -47,5 +59,24 @@ const features: { icon: IconName; title: string; text: string }[] = [
 
   .features p {
     font-size: 0.9375rem;
+  }
+
+  .grid-shot {
+    margin: clamp(32px, 5vw, 56px) 0 0;
+  }
+
+  /* The capture is the whole page; the frame shows its Apps card, which
+     starts about 37% of the way down, below the Top 10 chart. */
+  .grid-shot :global(img) {
+    aspect-ratio: 16 / 10;
+    height: auto;
+    object-fit: cover;
+    object-position: 50% 63%;
+  }
+
+  .grid-shot figcaption {
+    margin-top: 16px;
+    color: var(--text-faint);
+    font-size: 0.875rem;
   }
 </style>
